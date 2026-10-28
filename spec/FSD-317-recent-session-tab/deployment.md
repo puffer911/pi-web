@@ -19,7 +19,7 @@ authentication change is required by this feature.
 
 ## Target and runtime owner
 
-- Production target: `PT VPS`
+- Production target: VPS production (Biznet/Ubuntu)
 - Runtime service: Pi Web on port `30141`
 - Runtime owner: Agent SRE
 - Deployment authority: scoped SRE/Operator deployment command
