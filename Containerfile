@@ -2,6 +2,7 @@ FROM node:22.19.0-bookworm-slim AS dependencies
 
 WORKDIR /app
 COPY package.json package-lock.json ./
+COPY bin/prepare-terminal.js ./bin/prepare-terminal.js
 RUN npm ci
 
 FROM dependencies AS builder
