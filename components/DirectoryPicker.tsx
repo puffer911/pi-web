@@ -1,6 +1,9 @@
 "use client";
 
 import { type CSSProperties, type FormEvent, useCallback, useEffect, useState } from "react";
+import { appFetch } from "@/lib/app-path";
+
+const fetch = appFetch;
 import { createPortal } from "react-dom";
 import { useI18n } from "@/hooks/useI18n";
 

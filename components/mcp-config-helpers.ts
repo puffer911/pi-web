@@ -1,3 +1,4 @@
+import { appFetch } from "@/lib/app-path";
 import type {
   CodemodeInlineBudgetSetting,
   CodemodeMode,
@@ -28,6 +29,8 @@ import type {
 } from "@/lib/api-types";
 import type { McpImportFieldValue, McpImportNote } from "@/lib/mcp-import";
 import { itemsToSwitch } from "./settings-ui-helpers";
+
+const fetch = appFetch;
 
 // Pure helpers for Settings › MCP (components/McpConfig.tsx): what each row
 // shows, how the groups are built, and how the overview is loaded. Client-safe:

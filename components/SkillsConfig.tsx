@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback, useLayoutEffect, useRef } from "react";
+import { appFetch } from "@/lib/app-path";
+
+const fetch = appFetch;
 import { useI18n } from "@/hooks/useI18n";
 import type {
   SkillContentResponse,

@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { appFetch } from "@/lib/app-path";
+
+const fetch = appFetch;
 import {
   applySessionUiStateRequest,
   emptySessionUiState,

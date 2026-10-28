@@ -15,8 +15,13 @@ try {
 // Safari parses only from 16.4, which blanked `/` on iOS 16.2 (#753). The loader
 // swaps it for an equivalent built at runtime; both bundlers must run it.
 const gfmAutolinkEmailLoader = join(configDir, "lib/gfm-autolink-email-loader.cjs");
+const rawBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() ?? "";
+const basePath = !rawBasePath || rawBasePath === "/"
+  ? ""
+  : `/${rawBasePath.replace(/^\/+|\/+$/g, "")}`;
 
 const nextConfig: NextConfig = {
+  basePath,
   outputFileTracingRoot: configDir,
   experimental: {
     // proxy.ts matches /api/:path*, and Next buffers the request body whenever

@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { appFetch } from "@/lib/app-path";
+
+const fetch = appFetch;
 import { sendAgentCommand } from "@/lib/agent-client";
 import type {
   PluginPackageInfo,

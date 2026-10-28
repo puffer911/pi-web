@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Noto_Sans_Mono } from "next/font/google";
 import { PwaRegistration } from "@/components/PwaRegistration";
+import { appPath } from "@/lib/app-path";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "katex/dist/katex.min.css";
 import "./globals.css";
@@ -18,18 +19,18 @@ export const metadata: Metadata = {
   title: "Pi Web",
   description: "Pi Web interface for the pi coding agent",
   applicationName: "Pi Web",
-  manifest: "/manifest.webmanifest",
+  manifest: appPath("/manifest.webmanifest"),
   icons: {
     icon: [
       {
-        url: "/icons/icon-192.png",
+        url: appPath("/icons/icon-192.png"),
         sizes: "192x192",
         type: "image/png",
       },
     ],
     apple: [
       {
-        url: "/icons/apple-touch-icon.png",
+        url: appPath("/icons/apple-touch-icon.png"),
         sizes: "180x180",
         type: "image/png",
       },

@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback, useId, useRef } from "react";
+import { appEventSource, appFetch } from "@/lib/app-path";
+
+const fetch = appFetch;
 import { useI18n } from "@/hooks/useI18n";
 import type { ModelCatalogPreset, ModelCatalogRecommendation } from "@/lib/model-catalog";
 import type { DiscoveredModel } from "@/lib/model-discovery";
@@ -1357,7 +1360,7 @@ function OAuthDetail({ provider, onRefresh, enabledModels, contextSettings }: {
     setLoginState({ phase: "connecting" });
     setInputValue("");
 
-    const es = new EventSource(`/api/auth/login/${encodeURIComponent(provider.id)}`);
+    const es = appEventSource(`/api/auth/login/${encodeURIComponent(provider.id)}`);
     eventSourceRef.current = es;
 
     es.onmessage = (e) => {

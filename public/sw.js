@@ -1,12 +1,21 @@
+const APP_BASE_PATH = new URL(self.location.href).pathname
+  .replace(/\/sw\.js$/, "")
+  .replace(/\/$/, "");
+
+function appPath(path) {
+  if (!APP_BASE_PATH || path === APP_BASE_PATH || path.startsWith(`${APP_BASE_PATH}/`)) return path;
+  return `${APP_BASE_PATH}${path}`;
+}
+
 const CACHE_PREFIX = "pi-web";
 const CACHE_VERSION = new URL(self.location.href).searchParams.get("v") || "dev";
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${CACHE_VERSION}`;
-const OFFLINE_URL = "/offline.html";
+const OFFLINE_URL = appPath("/offline.html");
 const PRECACHE_URLS = [
   OFFLINE_URL,
-  "/icons/icon-192.png",
-  "/icons/icon-512.png",
-  "/icons/apple-touch-icon.png",
+  appPath("/icons/icon-192.png"),
+  appPath("/icons/icon-512.png"),
+  appPath("/icons/apple-touch-icon.png"),
 ];
 // A reachable port backed by a dead upstream accepts the connection and then
 // never answers: fetch() neither resolves nor rejects, so the navigation hangs
@@ -46,11 +55,11 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   // Session data and live agent traffic must always come from the local server.
-  if (url.pathname.startsWith("/api/") || url.pathname === "/sw.js") return;
+  if (url.pathname.startsWith(appPath("/api/")) || url.pathname === appPath("/sw.js")) return;
 
   // The manifest is runtime configuration. Bypass even entries left in an old
   // cache, including requests with a query string or navigation mode.
-  if (url.pathname === "/manifest.webmanifest") return;
+  if (url.pathname === appPath("/manifest.webmanifest")) return;
 
   if (request.mode === "navigate") {
     event.respondWith(
@@ -63,7 +72,7 @@ self.addEventListener("fetch", (event) => {
   }
 
   const isStaticAsset =
-    url.pathname.startsWith("/_next/static/") ||
+    url.pathname.startsWith(appPath("/_next/static/")) ||
     PRECACHE_URLS.includes(url.pathname);
 
   if (isStaticAsset) {
@@ -102,10 +111,12 @@ self.addEventListener("notificationclick", (event) => {
   const requestedUrl = typeof event.notification.data?.url === "string"
     ? event.notification.data.url
     : "/";
-  let targetUrl = new URL("/", self.location.origin);
+  let targetUrl = new URL(appPath("/"), self.location.origin);
   try {
     const candidate = new URL(requestedUrl, self.location.origin);
-    if (candidate.origin === self.location.origin) targetUrl = candidate;
+    if (candidate.origin === self.location.origin) {
+      targetUrl = new URL(`${appPath(candidate.pathname)}${candidate.search}${candidate.hash}`, self.location.origin);
+    }
   } catch {
     // Keep the root URL when notification data is malformed.
   }

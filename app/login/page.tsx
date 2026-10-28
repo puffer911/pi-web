@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState, type FormEvent } from "react";
 import { I18nProvider, useI18n } from "@/hooks/useI18n";
+import { appPath } from "@/lib/app-path";
 import { safeLoginDestination } from "@/lib/login-destination";
 
 function safeDestination(): string {
@@ -28,7 +29,7 @@ function LoginForm() {
     setBusy(true);
     setError("");
     try {
-      const response = await fetch("/api/web-auth", {
+      const response = await fetch(appPath("/api/web-auth"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),
@@ -49,7 +50,7 @@ function LoginForm() {
     <main className="web-login-page">
       <div className="web-login-shell">
         <header className="web-login-brand">
-          <Image src="/icons/apple-touch-icon.png" width={52} height={52} alt="" priority />
+          <Image src={appPath("/icons/apple-touch-icon.png")} width={52} height={52} alt="" priority />
           <div>
             <h1>Pi Web</h1>
             <p>{t("auth.prompt")}</p>

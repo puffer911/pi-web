@@ -1,6 +1,9 @@
 "use client";
 
 import { memo, useState, useRef, useEffect, useMemo, type CSSProperties } from "react";
+import { appFetch } from "@/lib/app-path";
+
+const fetch = appFetch;
 import ReactMarkdown from "react-markdown";
 import { MarkdownBody } from "./MarkdownBody";
 import { ImagePreview } from "./ImagePreview";

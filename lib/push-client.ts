@@ -1,9 +1,13 @@
+import { appFetch } from "./app-path.js";
+
 /**
  * Client-side Web Push subscription. Called once when the Notification
  * permission is granted; silently no-ops on unsupported browsers (e.g. iOS
  * Safari < 16.4 or non-PWA contexts) so the existing in-page notification
  * path keeps working as a fallback.
  */
+
+const fetch = appFetch;
 
 let activeSubscriptionPromise: Promise<boolean> | null = null;
 

@@ -1,3 +1,7 @@
+import { appFetch, appPath } from "./app-path.js";
+
+const fetch = appFetch;
+
 // Client-side helper for POST /api/agent/[id].
 //
 // Every /api/agent/[id] route returns one of:
@@ -32,7 +36,7 @@ export function isPromptRejectedError(error: unknown): error is AgentCommandErro
  * in a large project), fetched again after every model call (#1302).
  */
 export function agentStatusUrl(sessionId: string): string {
-  return `/api/agent/${encodeURIComponent(sessionId)}?systemPrompt=0`;
+  return appPath(`/api/agent/${encodeURIComponent(sessionId)}?systemPrompt=0`);
 }
 
 export async function sendAgentCommand<T = unknown>(
