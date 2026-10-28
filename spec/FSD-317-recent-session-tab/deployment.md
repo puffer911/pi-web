@@ -4,14 +4,17 @@ Migration required: No
 
 ## Scope
 
-Pi Web static/UI runtime artifact for the Recent sidebar tab. No database,
-DDL, migration, cache purge, network ACL, Tailscale, firewall, DNS, TLS, or
-authentication change is required by this feature.
+Pi Web static/UI runtime artifact for the Recent sidebar tab and its shared
+activity-status indicators. Running activity is green, unread/awaiting activity
+is amber, and idle/read activity is gray; the red Stop control remains a
+separate destructive action affordance. No database, DDL, migration, cache
+purge, network ACL, Tailscale, firewall, DNS, TLS, or authentication change is
+required by this feature.
 
 ## Source
 
 - Repository: `https://github.com/puffer911/pi-web`
-- Release source commit: `bd45f88964a52c74f12f2dfcbf25ba1d0190050f`
+- Release source commit: `ae29540b170295b54951b75ff9e8e9a1b805e401`
 - Branch at integration: `main`
 - Build: `npm ci` followed by `npm run build`
 - Image/tag: not applicable; this deployment uses the built Pi Web package
