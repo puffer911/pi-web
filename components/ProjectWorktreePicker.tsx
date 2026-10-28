@@ -512,6 +512,9 @@ export function ProjectWorktreePicker({
   const otherActivity = stacked && projectActivity !== undefined && [...projectActivity].some(
     ([key, { running, unread }]) => key !== project?.key && (running > 0 || unread > 0),
   );
+  const otherRunningActivity = otherActivity && projectActivity !== undefined && [...projectActivity].some(
+    ([key, { running }]) => key !== project?.key && running > 0,
+  );
 
   return (
     <div className={`project-picker is-${layout}`} role="group" aria-label={label}>
@@ -544,7 +547,7 @@ export function ProjectWorktreePicker({
           <span className="project-picker-label">{placeholder}</span>
         )}
         {otherActivity && (
-          <span className="project-picker-activity" role="img" title={t("sidebar.newActivity")} aria-label={t("sidebar.newActivity")} />
+          <span className={`project-picker-activity${otherRunningActivity ? " is-running" : ""}`} role="img" title={t("sidebar.newActivity")} aria-label={t("sidebar.newActivity")} />
         )}
         {inline && <ChevronIcon size={9} className="project-picker-chevron sidebar-icon-down" />}
       </button>

@@ -167,11 +167,11 @@
 }
 
 .session-tree-pinned-dot.is-running {
-  background: var(--accent);
+  background: var(--status-running);
 }
 
 .session-tree-pinned-dot.is-unread {
-  background: #0891b2;
+  background: var(--status-attention);
 }
 
 /* Session row: title, branch, time; actions take the time's place on
@@ -255,14 +255,14 @@ a.session-tree-main {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #0891b2;
+  background: var(--status-attention);
 }
 
 .session-tree-unread::after {
   content: "";
   position: absolute;
   inset: -3px;
-  border: 1.4px solid #0891b2;
+  border: 1.4px solid var(--status-attention);
   border-radius: 50%;
   opacity: 0.35;
   animation: session-tree-status-pulse 1.6s ease-in-out infinite;
@@ -277,14 +277,14 @@ a.session-tree-main {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #d97706;
+  background: var(--status-attention);
 }
 
 .session-tree-awaiting::after {
   content: "";
   position: absolute;
   inset: -3px;
-  border: 1.4px solid #d97706;
+  border: 1.4px solid var(--status-attention);
   border-radius: 50%;
   opacity: 0.35;
   animation: session-tree-status-pulse 1.6s ease-in-out infinite;
@@ -416,7 +416,7 @@ a.session-tree-main {
 }
 
 .session-tree-meta.is-running {
-  color: var(--accent);
+  color: var(--status-running);
 }
 
 .session-tree-session:hover .session-tree-meta {
@@ -661,7 +661,7 @@ a.session-tree-main {
 }
 
 .session-tree-summary-running svg {
-  color: var(--accent);
+  color: var(--status-running);
 }
 
 .session-tree-summary-dot {
@@ -669,7 +669,7 @@ a.session-tree-main {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #0891b2;
+  background: var(--status-attention);
 }
 
 .session-tree-group-actions {
@@ -1213,12 +1213,12 @@ a.session-tree-main {
 }
 
 .recent-session-status.is-running {
-  background: #16a34a;
+  background: var(--status-running);
 }
 
 .recent-session-status.is-awaiting,
 .recent-session-status.is-unread {
-  background: #d97706;
+  background: var(--status-attention);
 }
 
 .recent-session-status.is-idle {

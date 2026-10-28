@@ -479,7 +479,7 @@ test("row CSS stays flat, themed and quiet", () => {
   // the errors' red and the delete button's white). No mixes of their own.
   const textColors = new Set([...css.matchAll(/(?:^|[\s;{])color: ([^;]+);/g)].map((match) => match[1]));
   for (const color of textColors) {
-    assert.ok(["var(--text)", "var(--text-muted)", "var(--text-dim)", "var(--accent)", "inherit", "#f87171", "#fff"].includes(color), `unexpected text color ${color}`);
+    assert.ok(["var(--text)", "var(--text-muted)", "var(--text-dim)", "var(--accent)", "var(--status-running)", "inherit", "#f87171", "#fff"].includes(color), `unexpected text color ${color}`);
   }
   assert.doesNotMatch(css, /color: color-mix\(in srgb, var\(--text\)/);
 });

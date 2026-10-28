@@ -126,6 +126,8 @@ test("a project the user named shows that name in its box, the path as the toolt
 test("stacked: activity elsewhere shows a dot; the project in use does not count", () => {
   const elsewhere = render({ projectActivity: new Map([["lib-key", { running: 0, unread: 2 }]]) });
   assert.match(elsewhere, /<span class="project-picker-activity" role="img" title="New activity" aria-label="New activity"><\/span><\/button>/);
+  const runningElsewhere = render({ projectActivity: new Map([["lib-key", { running: 1, unread: 0 }]]) });
+  assert.match(runningElsewhere, /<span class="project-picker-activity is-running" role="img" title="New activity" aria-label="New activity"><\/span><\/button>/);
   assert.doesNotMatch(render({ projectActivity: new Map([["app-key", { running: 1, unread: 1 }]]) }), /project-picker-activity/);
   assert.doesNotMatch(render({ projectActivity: new Map([["lib-key", { running: 0, unread: 0 }]]) }), /project-picker-activity/);
   // The chips never show it.
