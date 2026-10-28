@@ -886,8 +886,8 @@ a.session-tree-main {
 }
 
 /*
- * Sidebar shell (components/SessionSidebar.tsx): header, the Sessions | Files
- * tabs and their panels, or (.is-files-below, the desktop default) both
+ * Sidebar shell (components/SessionSidebar.tsx): header, the Recent | Sessions |
+ * Files tabs and their panels, or (.is-files-below, the desktop default) both
  * panels in one column, the files under the sessions. Both panels stay
  * mounted; an inactive tab has the hidden attribute (display: none from the
  * base styles). The root is the containing block of the undo toast.
@@ -902,7 +902,8 @@ a.session-tree-main {
 }
 
 /* While the undo toast is up, the last rows can still scroll out from under it. */
-.session-sidebar.has-toast .session-tree-scroll {
+.session-sidebar.has-toast .session-tree-scroll,
+.session-sidebar.has-toast .recent-session-scroll {
   padding-bottom: 56px;
 }
 
@@ -930,7 +931,7 @@ a.session-tree-main {
   border-bottom: 1px solid var(--border);
 }
 
-/* The tablist itself holds only the two tabs (ARIA allows nothing else in it). */
+/* The tablist itself holds only the three tabs (ARIA allows nothing else in it). */
 .sidebar-tabs-list {
   display: flex;
   flex: none;
@@ -1117,6 +1118,164 @@ a.session-tree-main {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+}
+
+/* The Recent tab is a flat, cross-project view. It keeps the same compact
+   rhythm as the session tree, while the secondary line identifies the agent
+   or project that owns each session. */
+.recent-session-list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.recent-session-scroll {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  padding: 2px 0 6px;
+}
+
+.recent-session-message {
+  padding: 16px 14px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.recent-session-message.is-error {
+  padding: 12px 14px;
+  color: #f87171;
+}
+
+.recent-session-row {
+  position: relative;
+  min-width: 0;
+  min-height: 40px;
+  margin: 0 6px;
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.recent-session-row:hover {
+  background: var(--bg-hover);
+}
+
+.recent-session-row.is-selected {
+  background: var(--bg-selected);
+}
+
+.recent-session-row.is-selected::before {
+  content: "";
+  position: absolute;
+  top: 7px;
+  bottom: 7px;
+  left: 0;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--accent);
+}
+
+.recent-session-main {
+  display: grid;
+  grid-template-columns: 6px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 40px;
+  align-items: center;
+  column-gap: 7px;
+  row-gap: 1px;
+  box-sizing: border-box;
+  padding: 4px 6px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.recent-session-main:focus {
+  outline: none;
+}
+
+.recent-session-main:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.recent-session-status {
+  grid-row: 1 / -1;
+  align-self: center;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.recent-session-status.is-running {
+  background: #16a34a;
+}
+
+.recent-session-status.is-awaiting,
+.recent-session-status.is-unread {
+  background: #d97706;
+}
+
+.recent-session-status.is-idle {
+  background: var(--text-dim);
+}
+
+.recent-session-title {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  align-self: end;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-session-details {
+  display: flex;
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+  width: 100%;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-dim);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.recent-session-agent,
+.recent-session-project {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recent-session-time {
+  flex: none;
+  min-width: 24px;
+  margin-left: auto;
+  text-align: right;
+}
+
+.recent-session-list.is-mobile .recent-session-row,
+.recent-session-list.is-mobile .recent-session-main {
+  min-height: 48px;
+}
+
+.recent-session-list.is-mobile .recent-session-row.is-selected::before {
+  top: 12px;
+  bottom: 12px;
+}
+
+.recent-session-list.is-mobile .recent-session-title {
+  font-size: 13px;
 }
 
 /* The files below the sessions: the sessions fill what the files leave and

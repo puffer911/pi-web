@@ -87,6 +87,7 @@ import { DismissButton } from "./DismissButton";
 import { FileExplorer, type FileExplorerHandle } from "./FileExplorer";
 import { PiWebTitle } from "./PiWebTitle";
 import { ProjectWorktreePicker, type ProjectWorktreePickerHandle, type WorktreeRemoval } from "./ProjectWorktreePicker";
+import { RecentSessionList } from "./RecentSessionList";
 import { SessionSearch } from "./SessionSearch";
 import { SessionTree, sessionRowTitle, type SessionTreeReveal } from "./SessionTree";
 import { SidebarMenu, type SidebarMenuAnchor, type SidebarMenuItem } from "./SidebarMenu";
@@ -95,6 +96,7 @@ import {
   ArchiveIcon,
   ChangesIcon,
   CheckIcon,
+  ClockIcon,
   ChevronIcon,
   DotIcon,
   DotOutlineIcon,
@@ -558,7 +560,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
 
   // The files below the sessions (desktop, by default: both in view, a
   // separator between them, the files section foldable to its header row),
-  // or Sessions | Files tabs (the setting, and always on phones), each panel
+  // or Recent | Sessions | Files tabs (the setting, and always on phones), each panel
   // shown alone. Both layouts render the same elements in the same order,
   // only attributes and a few rows of their own differ, so a switch (the
   // setting, the phone breakpoint) never remounts the explorer, the tree or
@@ -570,8 +572,10 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   const stacked = !isMobile && filesPlacement === "below";
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("sessions");
   const [filesCollapsed, setFilesCollapsed] = useState(false);
+  const recentTabRef = useRef<HTMLButtonElement>(null);
   const sessionsTabRef = useRef<HTMLButtonElement>(null);
   const filesTabRef = useRef<HTMLButtonElement>(null);
+  const recentPanelRef = useRef<HTMLDivElement>(null);
   const sessionsPanelRef = useRef<HTMLDivElement>(null);
   const filesPanelRef = useRef<HTMLDivElement>(null);
   const panelScrollTopsRef = useRef(new WeakMap<Element, number>());
@@ -1538,10 +1542,17 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
    * gone. With the files below the sessions there are no tabs (their refs are
    * null): the toolbar row's search button, always there and enabled.
    */
-  const selectedTabButton = useCallback(
-    () => (sessionsPanelRef.current?.hidden ? filesTabRef : sessionsTabRef).current ?? searchButtonRef.current,
-    [],
-  );
+  const selectedTabButton = useCallback(() => {
+    const panels = [
+      [recentPanelRef, recentTabRef],
+      [sessionsPanelRef, sessionsTabRef],
+      [filesPanelRef, filesTabRef],
+    ] as const;
+    for (const [panel, tab] of panels) {
+      if (panel.current && !panel.current.hidden) return tab.current ?? searchButtonRef.current;
+    }
+    return searchButtonRef.current;
+  }, []);
 
   // A family's row where the tree shows it now (pinned, in its group, or in
   // the open archive view), else the selected tab.
@@ -1621,9 +1632,9 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     if (target instanceof Element) panelScrollTopsRef.current.set(target, target.scrollTop);
   }, []);
   useLayoutEffect(() => {
-    for (const panel of [sessionsPanelRef.current, filesPanelRef.current]) {
+    for (const panel of [recentPanelRef.current, sessionsPanelRef.current, filesPanelRef.current]) {
       if (!panel || panel.hidden) continue;
-      for (const element of panel.querySelectorAll<HTMLElement>(".session-tree-scroll, .sidebar-files-scroll")) {
+      for (const element of panel.querySelectorAll<HTMLElement>(".recent-session-scroll, .session-tree-scroll, .sidebar-files-scroll")) {
         const saved = panelScrollTopsRef.current.get(element);
         if (saved !== undefined && element.scrollTop !== saved) element.scrollTop = saved;
       }
@@ -1692,11 +1703,15 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   const handleTabKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight" && event.key !== "Home" && event.key !== "End") return;
     event.preventDefault();
-    const next: SidebarTab = event.key === "Home" ? "sessions"
-      : event.key === "End" ? "files"
-      : sidebarTab === "sessions" ? "files" : "sessions";
+    const tabs: SidebarTab[] = ["recent", "sessions", "files"];
+    const currentIndex = Math.max(0, tabs.indexOf(sidebarTab));
+    const next: SidebarTab = event.key === "Home"
+      ? tabs[0]
+      : event.key === "End"
+        ? tabs.at(-1)!
+        : tabs[(currentIndex + (event.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
     switchTab(next);
-    (next === "sessions" ? sessionsTabRef : filesTabRef).current?.focus();
+    (next === "recent" ? recentTabRef : next === "sessions" ? sessionsTabRef : filesTabRef).current?.focus();
   };
 
   // A session family's pin and archive flags live on its root session.
@@ -2671,7 +2686,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   // brand's text reports its own changes (fitHeader).
   const fitHeader = useHeaderFit(headerRef, (stacked
     ? ["below", t("sidebar.new")]
-    : ["tabs", t("sidebar.tabSessions"), t("sidebar.tabFiles"), t("sidebar.new"), explorerCwd && changesCount > 0 ? changesCount : "", sidebarTab]
+    : ["tabs", t("sidebar.tabRecent"), t("sidebar.tabSessions"), t("sidebar.tabFiles"), t("sidebar.new"), explorerCwd && changesCount > 0 ? changesCount : "", sidebarTab]
   ).join("\n"));
   const archivedCount = model.archivedCount;
 
@@ -2802,8 +2817,8 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
         />
       )}
       {/* One toolbar row, in the cells of the chat's top bar beside it (its
-          line continues that bar's): Sessions | Files, then New and the
-          search of the tab in view. Only the two tabs are the tablist. With
+          line continues that bar's): Recent | Sessions | Files, then New and
+          the search of the tab in view. Only the tabs are the tablist. With
           the files below the sessions there is nothing to choose: the brand
           stands there (the panel's anchor, the versions on a click), and
           the search is the sessions'. */}
@@ -2811,6 +2826,21 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
         {stacked && <PiWebTitle onWidthChange={fitHeader} />}
         {!stacked && (
           <div className="sidebar-tabs-list" role="tablist" aria-label={t("sidebar.tabsLabel")}>
+            <button
+              ref={recentTabRef}
+              type="button"
+              role="tab"
+              id="session-sidebar-tab-recent"
+              aria-selected={sidebarTab === "recent"}
+              aria-controls="session-sidebar-panel-recent"
+              tabIndex={sidebarTab === "recent" ? 0 : -1}
+              className={`sidebar-tab${sidebarTab === "recent" ? " is-selected" : ""}`}
+              onClick={() => switchTab("recent")}
+              onKeyDown={handleTabKeyDown}
+            >
+              <ClockIcon size={13} className="sidebar-tab-icon" />
+              <span className="sidebar-tab-label">{t("sidebar.tabRecent")}</span>
+            </button>
             <button
               ref={sessionsTabRef}
               type="button"
@@ -2982,6 +3012,32 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
             )}
           </div>
         </SessionSearch>
+      </div>
+
+      {/* Recent sessions across projects/agents. It stays mounted with the other
+          panels so switching tabs never loses its scroll position. */}
+      <div
+        ref={recentPanelRef}
+        id="session-sidebar-panel-recent"
+        role={stacked ? "region" : "tabpanel"}
+        aria-label={stacked ? t("sidebar.tabRecent") : undefined}
+        aria-labelledby={stacked ? undefined : "session-sidebar-tab-recent"}
+        hidden={stacked || sidebarTab !== "recent"}
+        className="sidebar-panel sidebar-recent-panel"
+        onScrollCapture={rememberScroll}
+      >
+        <RecentSessionList
+          sessions={allSessions}
+          archivedSessionIds={archiveIndex.ids}
+          runningSessionIds={runningSessionIds}
+          awaitingInputSessionIds={awaitingInputSessionIds}
+          unreadSessionIds={unreadSessionIds}
+          selectedSessionId={selectedSessionId}
+          loading={loading}
+          error={error}
+          layout={isMobile ? "mobile" : "desktop"}
+          onSelectSession={handleSelectSessionFromList}
+        />
       </div>
 
       {/* Below the sessions, the separator: drag, arrows, Home/End, Enter

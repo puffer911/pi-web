@@ -1,0 +1,165 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import type { SessionInfo } from "@/lib/types";
+import { formatShortRelativeTime } from "@/lib/i18n/format";
+import { isPlainActivation, sessionDeepLink } from "@/lib/session-links";
+import { useI18n } from "@/hooks/useI18n";
+import { useScrollbarVisibility } from "@/hooks/useScrollbarVisibility";
+import { sessionRowTitle } from "./SessionTree";
+
+const RECENT_SESSION_LIMIT = 100;
+
+type RecentSessionStatus = "running" | "awaiting" | "unread" | "idle";
+
+interface Props {
+  sessions: readonly SessionInfo[];
+  archivedSessionIds: ReadonlySet<string>;
+  runningSessionIds: ReadonlySet<string>;
+  awaitingInputSessionIds: ReadonlySet<string>;
+  unreadSessionIds: ReadonlySet<string>;
+  selectedSessionId: string | null;
+  loading: boolean;
+  error: string | null;
+  layout: "desktop" | "mobile";
+  onSelectSession: (session: SessionInfo) => void;
+}
+
+function sessionTime(session: SessionInfo): number {
+  const time = Date.parse(session.modified);
+  return Number.isNaN(time) ? -Infinity : time;
+}
+
+function lastPathSegment(path: string): string {
+  const trimmed = path.replace(/[\\/]+$/, "");
+  if (!trimmed) return path;
+  const separator = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
+  return trimmed.slice(separator + 1) || trimmed;
+}
+
+function agentPathSegment(cwd: string): string | null {
+  const segments = cwd.split(/[\\/]+/).filter(Boolean);
+  return [...segments].reverse().find((segment) => /^agent(?:[-_].+)?$/i.test(segment)) ?? null;
+}
+
+/** The resolved project root is more useful than a worktree cwd as the label. */
+export function recentSessionProjectLabel(session: SessionInfo): string {
+  const root = session.projectRoot ?? session.cwd;
+  const project = lastPathSegment(root);
+  const agent = agentPathSegment(session.cwd);
+  // Some agent workspaces resolve to the agent directory itself. Its parent is
+  // the useful project label; do not render the same path segment twice.
+  if (agent && project.toLowerCase() === agent.toLowerCase()) {
+    const trimmed = root.replace(/[\\/]+$/, "");
+    const separator = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
+    const parent = trimmed.slice(0, separator);
+    if (parent) return lastPathSegment(parent);
+  }
+  return project;
+}
+
+/**
+ * Pi does not persist a separate agent identity in SessionInfo. Agent lanes in
+ * the shared workspace are conventionally named `agent-*`; expose that path
+ * component when it is available, without guessing for ordinary projects.
+ */
+export function recentSessionAgentLabel(session: SessionInfo): string | null {
+  return agentPathSegment(session.cwd);
+}
+
+export function recentSessionStatus(
+  session: SessionInfo,
+  runningSessionIds: ReadonlySet<string>,
+  awaitingInputSessionIds: ReadonlySet<string>,
+  unreadSessionIds: ReadonlySet<string>,
+): RecentSessionStatus {
+  if (awaitingInputSessionIds.has(session.id)) return "awaiting";
+  if (runningSessionIds.has(session.id)) return "running";
+  if (unreadSessionIds.has(session.id)) return "unread";
+  return "idle";
+}
+
+export function RecentSessionList({
+  sessions,
+  archivedSessionIds,
+  runningSessionIds,
+  awaitingInputSessionIds,
+  unreadSessionIds,
+  selectedSessionId,
+  loading,
+  error,
+  layout,
+  onSelectSession,
+}: Props) {
+  const { locale, t } = useI18n();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [now, setNow] = useState(() => Date.now());
+  useScrollbarVisibility(scrollRef);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const recentSessions = useMemo(() => [...sessions]
+    .filter((session) => (
+      !session.transient
+      && session.relation?.kind !== "subagent"
+      && !archivedSessionIds.has(session.id)
+    ))
+    .sort((a, b) => sessionTime(b) - sessionTime(a) || b.path.localeCompare(a.path))
+    .slice(0, RECENT_SESSION_LIMIT), [archivedSessionIds, sessions]);
+
+  return (
+    <div className={`recent-session-list${layout === "mobile" ? " is-mobile" : ""}`}>
+      <div ref={scrollRef} className="recent-session-scroll scrollbar-subtle">
+        {loading && <div className="recent-session-message">{t("sidebar.loading")}</div>}
+        {error && <div className="recent-session-message is-error">{error}</div>}
+        {!loading && !error && recentSessions.length === 0 && (
+          <div className="recent-session-message">{t("sidebar.noRecentSessions")}</div>
+        )}
+        {!loading && !error && recentSessions.map((session) => {
+          const status = recentSessionStatus(session, runningSessionIds, awaitingInputSessionIds, unreadSessionIds);
+          const statusLabel = status === "awaiting"
+            ? t("sidebar.agentAwaitingInput")
+            : status === "running"
+              ? t("sidebar.agentRunning")
+              : status === "unread"
+                ? t("sidebar.newActivity")
+                : t("sidebar.sessionIdle");
+          const title = sessionRowTitle(session);
+          const agent = recentSessionAgentLabel(session) ?? t("sidebar.unknownAgent");
+          const project = recentSessionProjectLabel(session);
+          const time = formatShortRelativeTime(session.modified, locale, new Date(now));
+          const details = t("sidebar.recentSessionDetails", { agent, project, time });
+          const selected = session.id === selectedSessionId;
+
+          return (
+            <div key={session.id} className={`recent-session-row${selected ? " is-selected" : ""}`}>
+              <a
+                className="recent-session-main"
+                href={sessionDeepLink(session.id)}
+                title={`${title}\n${details}`}
+                aria-current={selected ? "true" : undefined}
+                onClick={(event: ReactMouseEvent<HTMLAnchorElement>) => {
+                  if (!isPlainActivation(event)) return;
+                  event.preventDefault();
+                  onSelectSession(session);
+                }}
+              >
+                <span className={`recent-session-status is-${status}`} role="img" aria-label={statusLabel} title={statusLabel} />
+                <span className="recent-session-title">{title}</span>
+                <span className="recent-session-details">
+                  <span className="recent-session-agent">{agent}</span>
+                  <span aria-hidden="true">·</span>
+                  <span className="recent-session-project">{project}</span>
+                  <span className="recent-session-time">{time}</span>
+                </span>
+              </a>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

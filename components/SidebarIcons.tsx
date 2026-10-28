@@ -240,6 +240,10 @@ export function MessageIcon(props: SidebarIconProps) {
   return <SidebarIcon {...props}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></SidebarIcon>;
 }
 
+export function ClockIcon(props: SidebarIconProps) {
+  return <SidebarIcon {...props}><circle cx="12" cy="12" r="8.5" /><path d="M12 7v5l3 2" /></SidebarIcon>;
+}
+
 /**
  * The running-agent spinner. It turns through the `sidebar-spin` class
  * (app/sidebar-menu.css), which stands still under prefers-reduced-motion.

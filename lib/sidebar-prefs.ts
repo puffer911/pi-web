@@ -1,5 +1,5 @@
 /**
- * Per-browser sidebar preferences: the active tab (sessions or files), the
+ * Per-browser sidebar preferences: the active tab (recent, sessions or files), the
  * user's explicit project group expand/collapse choices, the archive view's
  * folded projects, whether the pinned section is collapsed, whether the files section below the sessions is
  * collapsed, whether the files tab or section lists ignored files, and the
@@ -23,8 +23,8 @@ const SHOW_IGNORED_FILES_STORAGE_KEY = "pi-web:sidebar-files-show-ignored";
 const FILES_COLLAPSED_STORAGE_KEY = "pi-web:sidebar-files-collapsed";
 const NON_GIT_CWDS_STORAGE_KEY = "pi-web:sidebar-non-git-cwds";
 /**
- * Keys nothing reads now: the sessions/explorer split's, which the two tabs
- * replaced, and the group choices before v2 (loadGroupExpansion reads them
+ * Keys nothing reads now: the sessions/explorer split's, which the sidebar
+ * tabs replaced, and the group choices before v2 (loadGroupExpansion reads them
  * only while v2 is missing).
  */
 const RETIRED_STORAGE_KEYS = ["pi-web:file-explorer:open", "pi-web:sidebar-session-pane-height", LEGACY_GROUP_EXPANSION_STORAGE_KEY];
@@ -34,7 +34,7 @@ const MAX_GROUP_EXPANSION_ENTRIES = 300;
 /** Oldest folders are dropped beyond this many. */
 const MAX_NON_GIT_CWDS = 50;
 
-export type SidebarTab = "sessions" | "files";
+export type SidebarTab = "recent" | "sessions" | "files";
 
 interface StorageLike {
   getItem(key: string): string | null;
@@ -54,7 +54,9 @@ function getBrowserStorage(): StorageLike | null {
 export function loadSidebarTab(storage: StorageLike | null = getBrowserStorage()): SidebarTab {
   if (!storage) return "sessions";
   try {
-    return storage.getItem(SIDEBAR_TAB_STORAGE_KEY) === "files" ? "files" : "sessions";
+    const value = storage.getItem(SIDEBAR_TAB_STORAGE_KEY);
+    if (value === "recent" || value === "files") return value;
+    return "sessions";
   } catch {
     return "sessions";
   }

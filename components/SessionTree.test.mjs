@@ -474,7 +474,7 @@ test("row CSS stays flat, themed and quiet", () => {
   assert.doesNotMatch(css, /&/, "no CSS nesting");
   assert.doesNotMatch(css, /@starting-style|prefers-color-scheme/);
   const colors = new Set((css.match(/#[0-9a-fA-F]{3,8}\b/g) ?? []).map((color) => color.toLowerCase()));
-  for (const color of colors) assert.ok(["#ef4444", "#0891b2", "#d97706", "#f87171", "#fff"].includes(color), `unexpected color ${color}`);
+  for (const color of colors) assert.ok(["#ef4444", "#0891b2", "#16a34a", "#d97706", "#f87171", "#fff"].includes(color), `unexpected color ${color}`);
   // Three text colors: content, labels, meta (plus the accent for states,
   // the errors' red and the delete button's white). No mixes of their own.
   const textColors = new Set([...css.matchAll(/(?:^|[\s;{])color: ([^;]+);/g)].map((match) => match[1]));
