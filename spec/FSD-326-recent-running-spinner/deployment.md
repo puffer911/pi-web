@@ -3,7 +3,7 @@
 - Migration required: No
 - Source repository: `https://github.com/puffer911/pi-web`
 - Branch: `main`
-- Source commit: `8284b597dbf190354c872f15f19d9b1e427392e` (follow-up implementation commit; final merge commit recorded after self-merge)
+- Source commit: `a4ab887b2f49ab4ac1fd75764653e6bc1a23d744` (bulk Recent deletion follow-up; final merge commit recorded after self-merge)
 - Target artifact/tag: FSD-319 Vanilla Runtime artifact for the source commit; default release selector is `latest` unless the Operator/SRE command specifies an exact artifact.
 - Runtime target: Pi Web internal tooling service on the designated Mini PC only when explicitly authorized by the Operator/SRE deployment command.
 - Change: the Recent tab identifies the agent and last-activity time without rendering the shared project path, removes the unused agent/time separator, gives the title full row width until the per-row `⋯` menu is hovered (while keeping keyboard/focus/touch access), centers the status indicator, keeps the existing delete confirmation and visible CSS spinner, and adds `Delete this and older` for unarchived Recent rows with bounded bulk deletion and running-session protection. The Sessions tab restores its original desktop 28px row rhythm and hover-only overflow action. Reduced-motion users receive a static ring.
