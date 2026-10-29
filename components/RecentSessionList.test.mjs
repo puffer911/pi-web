@@ -6,7 +6,12 @@ const jiti = createJiti(import.meta.url, { jsx: { runtime: "automatic" }, tsconf
 const React = await jiti.import("react");
 const { renderToStaticMarkup } = await jiti.import("react-dom/server");
 const { I18nProvider } = await jiti.import("@/hooks/useI18n");
-const { RecentSessionList, recentSessionAgentLabel, recentSessionStatus } = await jiti.import("./RecentSessionList.tsx");
+const {
+  RecentSessionList,
+  recentSessionAgentLabel,
+  recentSessionIdsAtOrOlder,
+  recentSessionStatus,
+} = await jiti.import("./RecentSessionList.tsx");
 
 const h = React.createElement;
 const noop = () => {};
@@ -60,6 +65,10 @@ test("sorts recent saved top-level sessions and omits archived, transient and su
   assert.doesNotMatch(html, /session=archived|session=transient|session=child/);
   assert.match(html, /recent-session-agent">agent-coder<\/span>/);
   assert.match(html, /recent-session-agent">agent-designer<\/span>/);
+  assert.deepEqual(
+    recentSessionIdsAtOrOlder([older, subagent, transient, archived, newest], new Set([archived.id]), newest.id),
+    [newest.id, older.id],
+  );
 });
 
 test("renders running, attention and idle status indicators", () => {

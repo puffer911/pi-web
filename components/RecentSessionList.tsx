@@ -33,6 +33,31 @@ function sessionTime(session: SessionInfo): number {
   return Number.isNaN(time) ? -Infinity : time;
 }
 
+/** The complete Recent ordering, before the visible 100-row cap. */
+export function recentSessionCandidates(
+  sessions: readonly SessionInfo[],
+  archivedSessionIds: ReadonlySet<string>,
+): SessionInfo[] {
+  return [...sessions]
+    .filter((session) => (
+      !session.transient
+      && session.relation?.kind !== "subagent"
+      && !archivedSessionIds.has(session.id)
+    ))
+    .sort((a, b) => sessionTime(b) - sessionTime(a) || b.path.localeCompare(a.path));
+}
+
+/** Root ids from a Recent row through the oldest matching Recent session. */
+export function recentSessionIdsAtOrOlder(
+  sessions: readonly SessionInfo[],
+  archivedSessionIds: ReadonlySet<string>,
+  sessionId: string,
+): string[] {
+  const candidates = recentSessionCandidates(sessions, archivedSessionIds);
+  const index = candidates.findIndex((session) => session.id === sessionId);
+  return index < 0 ? [] : candidates.slice(index).map((session) => session.id);
+}
+
 function agentPathSegment(cwd: string): string | null {
   const segments = cwd.split(/[\\/]+/).filter(Boolean);
   return [...segments].reverse().find((segment) => /^agent(?:[-_].+)?$/i.test(segment) || /^sre$/i.test(segment)) ?? null;
@@ -84,14 +109,10 @@ export function RecentSessionList({
     return () => window.clearInterval(timer);
   }, []);
 
-  const recentSessions = useMemo(() => [...sessions]
-    .filter((session) => (
-      !session.transient
-      && session.relation?.kind !== "subagent"
-      && !archivedSessionIds.has(session.id)
-    ))
-    .sort((a, b) => sessionTime(b) - sessionTime(a) || b.path.localeCompare(a.path))
-    .slice(0, RECENT_SESSION_LIMIT), [archivedSessionIds, sessions]);
+  const recentSessions = useMemo(
+    () => recentSessionCandidates(sessions, archivedSessionIds).slice(0, RECENT_SESSION_LIMIT),
+    [archivedSessionIds, sessions],
+  );
 
   return (
     <div className={`recent-session-list${layout === "mobile" ? " is-mobile" : ""}`}>

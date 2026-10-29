@@ -92,7 +92,7 @@ import { DismissButton } from "./DismissButton";
 import { FileExplorer, type FileExplorerHandle } from "./FileExplorer";
 import { PiWebTitle } from "./PiWebTitle";
 import { ProjectWorktreePicker, type ProjectWorktreePickerHandle, type WorktreeRemoval } from "./ProjectWorktreePicker";
-import { RecentSessionList } from "./RecentSessionList";
+import { RecentSessionList, recentSessionIdsAtOrOlder } from "./RecentSessionList";
 import { SessionSearch } from "./SessionSearch";
 import { SessionTree, sessionRowTitle, type SessionTreeReveal } from "./SessionTree";
 import { SidebarMenu, type SidebarMenuAnchor, type SidebarMenuItem } from "./SidebarMenu";
@@ -297,7 +297,7 @@ type SessionRow = Extract<SidebarRow, { kind: "session" }>;
  * sessions", an archive header's "Delete all", the archive bar's two).
  */
 type SidebarMenuState =
-  | { kind: "row"; row: SessionRow; anchor: SidebarMenuAnchor; opener: HTMLElement | null; askDelete?: boolean }
+  | { kind: "row"; row: SessionRow; anchor: SidebarMenuAnchor; opener: HTMLElement | null; askDelete?: boolean; deleteIds?: readonly string[] }
   | { kind: "group"; project: SidebarProject; olderCount: number; anchor: SidebarMenuAnchor; opener: HTMLElement; askDelete?: boolean }
   | { kind: "archive-group"; project: SidebarProject; anchor: SidebarMenuAnchor; opener: HTMLElement; askDelete?: boolean }
   | { kind: "archive"; anchor: SidebarMenuAnchor; opener: HTMLElement; askDelete?: ArchiveDeleteScope };
@@ -2342,30 +2342,53 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     else filesPickerRef.current?.button("project")?.focus({ preventScroll: true });
   }, [filesShown, filesFocusRequest]);
 
-  const sessionMenuItems = (row: SessionRow): SidebarMenuItem[] => sessionMenuEntries(row.context, row.status).map((entry, index) => {
-    if (entry.kind === "separator") return { type: "separator", id: `separator-${index}` };
-    const label = t(SESSION_ACTION_LABEL_KEYS[entry.id]);
-    return {
-      type: "item",
-      id: entry.id,
-      label: entry.id === "delete" ? `${label}…` : label,
-      icon: sessionActionIcon(entry.id),
-      shortcut: entry.shortcut,
-      danger: entry.id === "delete",
-      disabled: entry.disabledReason !== undefined,
-      disabledReason: entry.disabledReason === "running" ? t("sidebar.cannotArchiveRunning") : undefined,
-      onSelect: ({ shiftKey, keepOpen }) => {
-        if (entry.id === "delete" && row.key.startsWith("session:recent:") && !shiftKey) {
+  const sessionMenuItems = (row: SessionRow): SidebarMenuItem[] => {
+    const items: SidebarMenuItem[] = sessionMenuEntries(row.context, row.status).map((entry, index): SidebarMenuItem => {
+      if (entry.kind === "separator") return { type: "separator", id: `separator-${index}` };
+      const label = t(SESSION_ACTION_LABEL_KEYS[entry.id]);
+      return {
+        type: "item" as const,
+        id: entry.id,
+        label: entry.id === "delete" ? `${label}…` : label,
+        icon: sessionActionIcon(entry.id),
+        shortcut: entry.shortcut,
+        danger: entry.id === "delete",
+        disabled: entry.disabledReason !== undefined,
+        disabledReason: entry.disabledReason === "running" ? t("sidebar.cannotArchiveRunning") : undefined,
+        onSelect: ({ shiftKey, keepOpen }: { shiftKey: boolean; keepOpen: () => void }) => {
+          if (entry.id === "delete" && row.key.startsWith("session:recent:") && !shiftKey) {
+            keepOpen();
+            setMenu((current) => current?.kind === "row" && current.row.key === row.key
+              ? { ...current, askDelete: true, deleteIds: undefined }
+              : current);
+            return;
+          }
+          runSessionAction(entry.id, row, shiftKey);
+        },
+      };
+    });
+    if (!row.key.startsWith("session:recent:")) return items;
+
+    const ids = recentSessionIdsAtOrOlder(allSessions, archiveIndex.ids, row.family.root.id);
+    return [
+      ...items,
+      { type: "separator" as const, id: "separator-recent-delete" },
+      {
+        type: "item" as const,
+        id: "delete-this-and-older",
+        label: t("sidebar.deleteThisAndOlder", { count: ids.length }),
+        icon: <TrashIcon />,
+        danger: true,
+        disabled: ids.length === 0,
+        onSelect: ({ keepOpen }: { keepOpen: () => void }) => {
           keepOpen();
           setMenu((current) => current?.kind === "row" && current.row.key === row.key
-            ? { ...current, askDelete: true }
+            ? { ...current, askDelete: true, deleteIds: [...ids] }
             : current);
-          return;
-        }
-        runSessionAction(entry.id, row, shiftKey);
+        },
       },
-    };
-  });
+    ];
+  };
 
   const groupMenuItems = (project: SidebarProject, olderCount: number): SidebarMenuItem[] => {
     const archivedCount = archiveIndex.countByProject.get(project.key) ?? 0;
@@ -2519,21 +2542,41 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     });
   };
 
-  const recentDeleteBody = (row: SessionRow): ReactNode => deleteQuestionBody({
-    heading: t("sidebar.deleteSession", { title: sessionRowTitle(row.family.root) }),
-    headingTitle: sessionRowTitle(row.family.root),
-    notes: [],
-    count: 1,
-    onConfirm: () => {
-      setMenu(null);
-      void performDelete(row.family);
-    },
-    onCancel: () => setMenu((current) => (
-      current?.kind === "row" && current.row.key === row.key
-        ? { ...current, askDelete: false }
-        : current
-    )),
-  });
+  const recentDeleteBody = (row: SessionRow, bulkIds?: readonly string[]): ReactNode => {
+    const ids = bulkIds ?? [row.family.root.id];
+    const running = bulkIds
+      ? ids.filter((id) => {
+          const family = familyByRootId.get(id);
+          return family ? familyIds(family).some((memberId) => runningSessionIds.has(memberId) || awaitingInputSessionIds.has(memberId)) : false;
+        }).length
+      : 0;
+    return deleteQuestionBody({
+      heading: bulkIds
+        ? t("sidebar.deleteRecentSessionsHeading", { count: ids.length })
+        : t("sidebar.deleteSession", { title: sessionRowTitle(row.family.root) }),
+      headingTitle: sessionRowTitle(row.family.root),
+      notes: bulkIds
+        ? [
+            t("sidebar.deleteRecentSessionsMessage"),
+            ...(running > 0 ? [t("sidebar.deleteProjectSessionsRunning", { count: running })] : []),
+          ]
+        : [],
+      count: ids.length,
+      onConfirm: () => {
+        if (bulkIds) {
+          void deleteFamilyIds(`recent:${row.family.root.id}`, ids, selectedTabButton);
+        } else {
+          setMenu(null);
+          void performDelete(row.family);
+        }
+      },
+      onCancel: () => setMenu((current) => (
+        current?.kind === "row" && current.row.key === row.key
+          ? { ...current, askDelete: false, deleteIds: undefined }
+          : current
+      )),
+    });
+  };
 
   const archiveGroupMenuItems = (project: SidebarProject): SidebarMenuItem[] => {
     const ids = archiveDeleteIds({ projectKey: project.key });
@@ -2640,7 +2683,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     menuTitle = sessionRowTitle(menuRow.family.root);
     menuLabel = t("sidebar.sessionActions");
     menuItems = sessionMenuItems(menuRow);
-    if (menu.askDelete && menuRow.key.startsWith("session:recent:")) menuBody = recentDeleteBody(menuRow);
+    if (menu.askDelete && menuRow.key.startsWith("session:recent:")) menuBody = recentDeleteBody(menuRow, menu.deleteIds);
   } else if (menu?.kind === "group") {
     // The project as the tree has it now: pinned, unpinned, renamed or moved in another window while the menu is open.
     const project = projectByKey.get(menu.project.key) ?? menu.project;
