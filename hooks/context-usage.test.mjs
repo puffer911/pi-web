@@ -116,7 +116,7 @@ test("only completed assistant messages trigger an immediate usage read", () => 
       agentRunningRef: { current: true }, sessionIdRef: { current: "a" }, optimisticUserMessageKeyRef: { current: null },
       isSystemMessageEvent: (event) => event.message.role === "system",
       normalizeToolCalls: (message) => message, userMessageKey: () => "user", setMessages() {}, dispatch() {}, setAgentPhase() {},
-      refreshContextUsage: (sid) => reads.push(sid),
+      refreshContextUsage: (sid) => reads.push(sid), retainLiveImageToolResults() {},
     });
     assert.deepEqual(reads, role === "assistant" ? ["a"] : []);
   }
