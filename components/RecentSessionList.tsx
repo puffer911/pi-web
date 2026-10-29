@@ -11,7 +11,7 @@ import { MoreIcon, SpinnerIcon } from "./SidebarIcons";
 
 const RECENT_SESSION_LIMIT = 100;
 
-type RecentSessionStatus = "running" | "awaiting" | "unread" | "idle";
+type RecentSessionStatus = "running" | "awaiting" | "unread" | "completed" | "idle";
 
 interface Props {
   sessions: readonly SessionInfo[];
@@ -19,6 +19,7 @@ interface Props {
   runningSessionIds: ReadonlySet<string>;
   awaitingInputSessionIds: ReadonlySet<string>;
   unreadSessionIds: ReadonlySet<string>;
+  completedSessionIds?: ReadonlySet<string>;
   selectedSessionId: string | null;
   loading: boolean;
   error: string | null;
@@ -78,10 +79,12 @@ export function recentSessionStatus(
   runningSessionIds: ReadonlySet<string>,
   awaitingInputSessionIds: ReadonlySet<string>,
   unreadSessionIds: ReadonlySet<string>,
+  completedSessionIds: ReadonlySet<string> = new Set(),
 ): RecentSessionStatus {
   if (awaitingInputSessionIds.has(session.id)) return "awaiting";
   if (runningSessionIds.has(session.id)) return "running";
   if (unreadSessionIds.has(session.id)) return "unread";
+  if (completedSessionIds.has(session.id)) return "completed";
   return "idle";
 }
 
@@ -91,6 +94,7 @@ export function RecentSessionList({
   runningSessionIds,
   awaitingInputSessionIds,
   unreadSessionIds,
+  completedSessionIds,
   selectedSessionId,
   loading,
   error,
@@ -123,14 +127,16 @@ export function RecentSessionList({
           <div className="recent-session-message">{t("sidebar.noRecentSessions")}</div>
         )}
         {!loading && !error && recentSessions.map((session) => {
-          const status = recentSessionStatus(session, runningSessionIds, awaitingInputSessionIds, unreadSessionIds);
+          const status = recentSessionStatus(session, runningSessionIds, awaitingInputSessionIds, unreadSessionIds, completedSessionIds);
           const statusLabel = status === "awaiting"
             ? t("sidebar.agentAwaitingInput")
             : status === "running"
               ? t("sidebar.agentRunning")
               : status === "unread"
                 ? t("sidebar.newActivity")
-                : t("sidebar.sessionIdle");
+                : status === "completed"
+                  ? t("sidebar.agentCompleted")
+                  : t("sidebar.sessionIdle");
           const title = sessionRowTitle(session);
           const agent = recentSessionAgentLabel(session) ?? t("sidebar.unknownAgent");
           const time = formatShortRelativeTime(session.modified, locale, new Date(now));

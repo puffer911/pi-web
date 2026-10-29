@@ -1277,7 +1277,8 @@ a.session-tree-main {
 }
 
 .recent-session-status.is-awaiting,
-.recent-session-status.is-unread {
+.recent-session-status.is-unread,
+.recent-session-status.is-completed {
   background: var(--status-attention);
 }
 

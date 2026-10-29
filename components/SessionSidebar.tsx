@@ -553,7 +553,12 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   const [runningSessionIds, setRunningSessionIds] = useState<Set<string>>(() => new Set());
   const [awaitingInputSessionIds, setAwaitingInputSessionIds] = useState<Set<string>>(() => new Set());
   const [unreadSessionIds, setUnreadSessionIds] = useState<Set<string>>(() => loadUnreadSessionIds());
+  // A completion marker is intentionally page-local: it highlights the run
+  // that just ended, including the selected session, without persisting a
+  // selected session as unread across reloads.
+  const [recentlyCompletedSessionIds, setRecentlyCompletedSessionIds] = useState<Set<string>>(() => new Set());
   const previousRunningSessionIdsRef = useRef<Set<string>>(new Set());
+  const previousSelectedSessionIdRef = useRef<string | null>(selectedSessionId);
   const currentSuppressedCompletionSessionIdsRef = useRef<Set<string>>(new Set());
   const previousSuppressedCompletionSessionIdsRef = useRef<Set<string>>(new Set());
   // Once polling has delivered a snapshot it is the source of truth for
@@ -793,6 +798,11 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
         const next = new Set([...prev].filter((id) => unreadEligibleIds.has(id)));
         return next.size === prev.size ? prev : next;
       });
+      setRecentlyCompletedSessionIds((prev) => {
+        if (prev.size === 0) return prev;
+        const next = new Set([...prev].filter((id) => unreadEligibleIds.has(id)));
+        return next.size === prev.size ? prev : next;
+      });
       setError(null);
     } catch (e) {
       if (loadId === sessionLoadIdRef.current) setError(String(e));
@@ -992,7 +1002,13 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
 
   useEffect(() => {
     const previous = previousRunningSessionIdsRef.current;
-    const completedInBackground = [...previous].filter((id) => !runningSessionIds.has(id) && id !== selectedSessionId);
+    const knownRootIds = new Set(
+      allSessions
+        .filter((session) => session.relation?.kind !== "subagent")
+        .map((session) => session.id),
+    );
+    const completedNow = [...previous].filter((id) => !runningSessionIds.has(id) && knownRootIds.has(id));
+    const completedInBackground = completedNow.filter((id) => id !== selectedSessionId);
     const knownSubagentIds = new Set(
       allSessions
         .filter((session) => session.relation?.kind === "subagent")
@@ -1003,6 +1019,14 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     );
     const newlyRunning = [...runningSessionIds].filter((id) => !previous.has(id));
 
+    if (completedNow.length > 0 || newlyRunning.length > 0) {
+      setRecentlyCompletedSessionIds((prev) => {
+        const next = new Set(prev);
+        newlyRunning.forEach((id) => next.delete(id));
+        completedNow.forEach((id) => next.add(id));
+        return next;
+      });
+    }
     if (completedWithNotifications.length > 0 || newlyRunning.length > 0) {
       setUnreadSessionIds((prev) => {
         const next = new Set(prev);
@@ -1038,6 +1062,20 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
       if (!prev.has(selectedSessionId)) return prev;
       const next = new Set(prev);
       next.delete(selectedSessionId);
+      return next;
+    });
+  }, [selectedSessionId]);
+
+  // Keep the just-finished marker visible while the user remains on that
+  // session; selecting another session means the completion has been seen.
+  useEffect(() => {
+    const previous = previousSelectedSessionIdRef.current;
+    previousSelectedSessionIdRef.current = selectedSessionId;
+    if (!previous || previous === selectedSessionId) return;
+    setRecentlyCompletedSessionIds((prev) => {
+      if (!prev.has(previous)) return prev;
+      const next = new Set(prev);
+      next.delete(previous);
       return next;
     });
   }, [selectedSessionId]);
@@ -1725,14 +1763,21 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   }, [applyUiState]);
 
   const markFamilyRead = useCallback((family: SessionFamily, read: boolean) => {
+    const memberIds = familyIds(family);
     setUnreadSessionIds((prev) => {
       const next = new Set(prev);
       if (read) {
-        for (const id of familyIds(family)) next.delete(id);
+        for (const id of memberIds) next.delete(id);
       } else {
         // Subagents never carry the marker (loadSessions prunes them).
         next.add(family.root.id);
       }
+      return next;
+    });
+    setRecentlyCompletedSessionIds((prev) => {
+      if (!memberIds.some((id) => prev.has(id))) return prev;
+      const next = new Set(prev);
+      for (const id of memberIds) next.delete(id);
       return next;
     });
   }, []);
@@ -3129,6 +3174,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
           runningSessionIds={runningSessionIds}
           awaitingInputSessionIds={awaitingInputSessionIds}
           unreadSessionIds={unreadSessionIds}
+          completedSessionIds={recentlyCompletedSessionIds}
           selectedSessionId={selectedSessionId}
           loading={loading}
           error={error}

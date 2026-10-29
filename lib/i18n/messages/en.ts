@@ -360,6 +360,7 @@ export const enLocale: LocalePlugin = {
     "sidebar.noSessions": "No sessions found",
     "sidebar.agentRunning": "Agent running…",
     "sidebar.agentAwaitingInput": "Agent waiting for your input",
+    "sidebar.agentCompleted": "Agent finished",
     "sidebar.newActivity": "New activity",
     "sidebar.newSessionActivity": "New session activity",
     "sidebar.sessionIdle": "Idle",

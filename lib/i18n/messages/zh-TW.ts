@@ -360,6 +360,7 @@ export const zhTWLocale: LocalePlugin = {
     "sidebar.noSessions": "找不到工作階段",
     "sidebar.agentRunning": "Agent 執行中…",
     "sidebar.agentAwaitingInput": "Agent 等待你的輸入",
+    "sidebar.agentCompleted": "Agent 已完成",
     "sidebar.newActivity": "有新活動",
     "sidebar.newSessionActivity": "工作階段有新活動",
     "sidebar.sessionIdle": "閒置",

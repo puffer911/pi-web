@@ -75,16 +75,20 @@ test("renders running, attention and idle status indicators", () => {
   const running = session("running");
   const awaiting = session("awaiting", "/work/agent-designer", 1_000);
   const idle = session("idle", "/work/agent-marketing", 2_000);
+  const completed = session("completed", "/work/sre", 3_000);
   const html = render({
-    sessions: [idle, awaiting, running],
+    sessions: [idle, awaiting, running, completed],
     runningSessionIds: new Set([running.id, awaiting.id]),
     awaitingInputSessionIds: new Set([awaiting.id]),
     unreadSessionIds: new Set([idle.id]),
+    completedSessionIds: new Set([completed.id]),
   });
   assert.match(html, /recent-session-status is-running[^>]*aria-label="Agent running/);
   assert.match(html, /recent-session-status is-awaiting[^>]*aria-label="Agent waiting for your input/);
   assert.match(html, /recent-session-status is-unread[^>]*aria-label="New activity/);
+  assert.match(html, /recent-session-status is-completed[^>]*aria-label="Agent finished/);
   assert.equal(recentSessionStatus(awaiting, new Set([awaiting.id]), new Set([awaiting.id]), new Set()), "awaiting");
+  assert.equal(recentSessionStatus(completed, new Set(), new Set(), new Set(), new Set([completed.id])), "completed");
   assert.equal(recentSessionAgentLabel(running), "agent-coder");
   assert.equal(recentSessionAgentLabel(session("sre", "/work/sre")), "sre");
   assert.equal(recentSessionAgentLabel(session("plain", "/work/projects/pi-web")), null);
