@@ -174,10 +174,12 @@
   background: var(--status-attention);
 }
 
-/* Session row: title, branch, time and a visible overflow action. Hover and
-   selection are a rounded box inset from the sidebar's edges, never a
-   full-width band. The extra desktop row height gives the title and action
-   enough breathing room without changing the phone's finger-sized rhythm. */
+/* Session row: title, branch, time; actions take the time's place on
+   hover. Hover and selection are a rounded box inset from the sidebar's
+   edges, never a full-width band. The title starts in the text column,
+   under its group's name; the time ends 4px inside the box, on a folded
+   group's summary's edge (no gap before the actions while they are hidden:
+   each shown action brings its own). */
 .session-tree-session {
   right: var(--session-tree-inset-right);
   left: var(--session-tree-inset-left);
@@ -198,14 +200,14 @@
 /* The selected row's mark, the tree's one use of the accent: a bar on the
    box's left edge, before the chevron column, so it is found at a glance
    even where --bg-selected is faint. The row (absolutely positioned) is its
-   containing block; inset from the top and bottom (an 18px bar on a 36px
-   desktop row, 20px on a phone's 44px), the row's rounded corners never clip
-   it. A delete confirmation's red frame stands alone. */
+   containing block; inset from the top and bottom (a 14px bar on a 28px
+   row, 20px on a phone's 44px), the row's rounded corners never clip it.
+   A delete confirmation's red frame stands alone. */
 .session-tree-session.is-selected:not(.is-confirming)::before {
   content: "";
   position: absolute;
-  top: 9px;
-  bottom: 9px;
+  top: 7px;
+  bottom: 7px;
   left: 0;
   width: 3px;
   border-radius: 0 2px 2px 0;
@@ -374,9 +376,8 @@ a.session-tree-main {
   vertical-align: bottom;
 }
 
-/* Always rendered; the overflow action remains discoverable while the quick
-   archive/restore action is contextual. The action's own 2px margin keeps the
-   time and menu visually separated without adding a hidden gap. */
+/* Always rendered, empty-looking while its buttons are hidden: a gap of its
+   own would keep the time 2px off the edge. */
 .session-tree-actions {
   display: flex;
   flex: none;
@@ -407,13 +408,10 @@ a.session-tree-main {
   background: var(--bg-hover);
 }
 
-/* Keep ⋯ visible on saved rows so the session menu and Delete action are
-   discoverable without a hover. Archive/restore stays contextual. */
-.session-tree-more-action {
-  display: flex;
-}
-
-.session-tree-session:hover .session-tree-quick-action {
+/* Desktop: ⋯ (and archive) on hover; ⋯ alone on the selected row or while its menu is open. */
+.session-tree-session:hover .session-tree-action,
+.session-tree-session.is-selected .session-tree-more-action,
+.session-tree-session.is-menu-open .session-tree-more-action {
   display: flex;
 }
 
@@ -1156,7 +1154,7 @@ a.session-tree-main {
 
 .recent-session-row {
   position: relative;
-  display: flex;
+  display: block;
   min-width: 0;
   min-height: 40px;
   margin: 0 6px;
@@ -1185,11 +1183,12 @@ a.session-tree-main {
 
 .recent-session-main {
   display: grid;
-  flex: 1 1 auto;
+  width: 100%;
   grid-template-columns: 12px minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
   min-width: 0;
   min-height: 40px;
+  align-content: center;
   align-items: center;
   column-gap: 2px;
   row-gap: 1px;
@@ -1209,14 +1208,16 @@ a.session-tree-main {
 }
 
 .recent-session-more-action {
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  z-index: 1;
   display: flex;
-  flex: none;
   align-items: center;
   justify-content: center;
   width: 28px;
   height: 28px;
-  align-self: center;
-  margin: 0 2px 0 0;
+  margin: 0;
   padding: 0;
   border: 0;
   border-radius: 6px;
@@ -1226,6 +1227,7 @@ a.session-tree-main {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
+  transform: translateY(-50%);
   transition: opacity 120ms ease;
 }
 
@@ -1237,6 +1239,13 @@ a.session-tree-main {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
+}
+
+.recent-session-row:hover .recent-session-main,
+.recent-session-row:focus-within .recent-session-main,
+.recent-session-row.is-menu-open .recent-session-main,
+.recent-session-list.is-mobile .recent-session-main {
+  padding-right: 36px;
 }
 
 .recent-session-more-action:hover,
@@ -1251,9 +1260,9 @@ a.session-tree-main {
 }
 
 .recent-session-status {
+  display: block;
   grid-row: 1 / -1;
-  align-self: center;
-  justify-self: center;
+  place-self: center;
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -1280,7 +1289,7 @@ a.session-tree-main {
   grid-column: 2;
   grid-row: 1;
   min-width: 0;
-  align-self: end;
+  align-self: center;
   overflow: hidden;
   color: var(--text);
   font-size: 12px;

@@ -30,15 +30,13 @@ export type SidebarRowKind =
 /**
  * Per-kind row heights: one rhythm. Session rows, the section headers (a
  * project's, the pinned section's, the archive's projects), the empty
- * group's note and the footer are one height, 36px on desktop and 44px on a
- * phone (the phone height remains the finger-friendly minimum); only "show
- * more" is a step shorter. The extra desktop breathing room keeps the title
- * and the always-available row menu from feeling cramped. A spacer parts the
- * pinned section from the groups and the groups from the footer; groups
- * themselves sit right on each other, with none between them.
+ * group's note and the footer are one height, 28px (44px on a phone, a
+ * finger's minimum for the rows); only "show more" is a step shorter. A
+ * spacer parts the pinned section from the groups and the groups from the
+ * footer; groups themselves sit right on each other, with none between them.
  */
 export const SIDEBAR_ROW_HEIGHTS: Record<SidebarLayout, Record<SidebarRowKind, number>> = {
-  desktop: { "pinned-header": 36, session: 36, "pinned-more": 32, group: 36, "group-more": 32, "group-empty": 36, spacer: 10, "footer-open": 36, "footer-archived": 36, "archive-group": 36 },
+  desktop: { "pinned-header": 28, session: 28, "pinned-more": 26, group: 28, "group-more": 26, "group-empty": 28, spacer: 8, "footer-open": 28, "footer-archived": 28, "archive-group": 28 },
   mobile: { "pinned-header": 44, session: 44, "pinned-more": 36, group: 44, "group-more": 36, "group-empty": 44, spacer: 8, "footer-open": 44, "footer-archived": 44, "archive-group": 44 },
 };
 export const GROUP_VISIBLE_LIMIT = 6;
