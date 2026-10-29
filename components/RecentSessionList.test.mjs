@@ -85,7 +85,8 @@ test("renders a Recent row menu without showing the project path", () => {
   const running = session("running", "/work/agent-coder");
   const html = render({ sessions: [running], onOpenMenu: noop });
   assert.match(html, /recent-session-more-action[^>]*aria-label="More actions"/);
-  assert.match(html, /<span class="recent-session-agent">agent-coder<\/span><span aria-hidden="true">·<\/span><span class="recent-session-time">/);
+  assert.match(html, /<span class="recent-session-agent">agent-coder<\/span><span class="recent-session-time">/);
+  assert.doesNotMatch(html, /recent-session-agent">agent-coder<\/span><span aria-hidden="true">·<\/span>/);
   assert.doesNotMatch(html, /recent-session-project/);
 });
 

@@ -137,7 +137,6 @@ export function RecentSessionList({
                 <span className="recent-session-title">{title}</span>
                 <span className="recent-session-details">
                   <span className="recent-session-agent">{agent}</span>
-                  <span aria-hidden="true">·</span>
                   <span className="recent-session-time">{time}</span>
                 </span>
               </a>
