@@ -174,12 +174,10 @@
   background: var(--status-attention);
 }
 
-/* Session row: title, branch, time; actions take the time's place on
-   hover. Hover and selection are a rounded box inset from the sidebar's
-   edges, never a full-width band. The title starts in the text column,
-   under its group's name; the time ends 4px inside the box, on a folded
-   group's summary's edge (no gap before the actions while they are hidden:
-   each shown action brings its own). */
+/* Session row: title, branch, time and a visible overflow action. Hover and
+   selection are a rounded box inset from the sidebar's edges, never a
+   full-width band. The extra desktop row height gives the title and action
+   enough breathing room without changing the phone's finger-sized rhythm. */
 .session-tree-session {
   right: var(--session-tree-inset-right);
   left: var(--session-tree-inset-left);
@@ -200,14 +198,14 @@
 /* The selected row's mark, the tree's one use of the accent: a bar on the
    box's left edge, before the chevron column, so it is found at a glance
    even where --bg-selected is faint. The row (absolutely positioned) is its
-   containing block; inset from the top and bottom (a 14px bar on a 28px
-   row, 20px on a phone's 44px), the row's rounded corners never clip it.
-   A delete confirmation's red frame stands alone. */
+   containing block; inset from the top and bottom (an 18px bar on a 36px
+   desktop row, 20px on a phone's 44px), the row's rounded corners never clip
+   it. A delete confirmation's red frame stands alone. */
 .session-tree-session.is-selected:not(.is-confirming)::before {
   content: "";
   position: absolute;
-  top: 7px;
-  bottom: 7px;
+  top: 9px;
+  bottom: 9px;
   left: 0;
   width: 3px;
   border-radius: 0 2px 2px 0;
@@ -376,8 +374,9 @@ a.session-tree-main {
   vertical-align: bottom;
 }
 
-/* Always rendered, empty-looking while its buttons are hidden: a gap of its
-   own would keep the time 2px off the edge. */
+/* Always rendered; the overflow action remains discoverable while the quick
+   archive/restore action is contextual. The action's own 2px margin keeps the
+   time and menu visually separated without adding a hidden gap. */
 .session-tree-actions {
   display: flex;
   flex: none;
@@ -408,10 +407,13 @@ a.session-tree-main {
   background: var(--bg-hover);
 }
 
-/* Desktop: ⋯ (and archive) on hover; ⋯ alone on the selected row or while its menu is open. */
-.session-tree-session:hover .session-tree-action,
-.session-tree-session.is-selected .session-tree-more-action,
-.session-tree-session.is-menu-open .session-tree-more-action {
+/* Keep ⋯ visible on saved rows so the session menu and Delete action are
+   discoverable without a hover. Archive/restore stays contextual. */
+.session-tree-more-action {
+  display: flex;
+}
+
+.session-tree-session:hover .session-tree-quick-action {
   display: flex;
 }
 
