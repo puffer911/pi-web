@@ -1,4 +1,4 @@
-import type { AgentMessage, AssistantContentBlock, AssistantMessage, ThinkingContent, ToolCallContent } from "./types";
+import type { AgentMessage, AssistantContentBlock, AssistantMessage, ThinkingContent, ToolCallContent, ToolResultMessage } from "./types";
 
 interface DisplayOptions {
   isStreaming?: boolean;
@@ -140,6 +140,20 @@ export function splitFinalAssistantBlocks(
 
 export function countToolCallBlocks(blocks: AssistantContentBlock[]): number {
   return blocks.filter((block): block is ToolCallContent => block.type === "toolCall").length;
+}
+
+/** Tool screenshots are useful output, not merely process metadata. */
+export function hasToolResultImages(result: ToolResultMessage | undefined): boolean {
+  return result?.content.some((block) => block.type === "image") ?? false;
+}
+
+export function assistantHasToolResultImages(
+  message: AssistantMessage,
+  toolResults: ReadonlyMap<string, ToolResultMessage>,
+): boolean {
+  return message.content.some((block) => (
+    block.type === "toolCall" && hasToolResultImages(toolResults.get(block.toolCallId))
+  ));
 }
 
 /**

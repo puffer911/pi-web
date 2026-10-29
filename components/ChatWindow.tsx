@@ -11,7 +11,7 @@ import { normalizeCustomPanelLines } from "@/lib/ansi";
 import { splitNoticeText } from "@/lib/notice-text";
 import { EXTENSION_DIALOG_BASE_WIDTH, fitExtensionDialogWidth } from "@/lib/extension-dialog-fit";
 import { asBracketedPaste, toTerminalKeyData } from "@/lib/terminal-input";
-import { collapsesProcessDetails, countToolCallBlocks, getDisplayableAssistantBlocks, hasAssistantAnswer, isHiddenCustomMessage, isMessageGroupAnchor, splitFinalAssistantBlocks } from "@/lib/message-display";
+import { assistantHasToolResultImages, collapsesProcessDetails, countToolCallBlocks, getDisplayableAssistantBlocks, hasAssistantAnswer, isHiddenCustomMessage, isMessageGroupAnchor, splitFinalAssistantBlocks } from "@/lib/message-display";
 import { extractTurnWrittenFiles, type WrittenFile } from "@/lib/turn-written-files";
 import { getFinalAnswerViews, keepWrittenFiles, type FinalAnswerViews } from "@/lib/turn-views";
 import { formatTurnDuration, getTurnDurationMs } from "@/lib/turn-duration";
@@ -1236,6 +1236,7 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
                 // processViews also holds the notice lines of steps that show nothing else.
                 let processMessageCount = 0;
                 let processToolCount = 0;
+                let processHasToolResultImages = false;
                 let processRefIdx: number | undefined;
                 let revealProcess = false;
 
@@ -1254,6 +1255,7 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
                   // The final message's notices go under its answer when it has one.
                   const withNotices = processIdx !== finalAssistantIdx || !finalAnswerMessage;
                   const blocks = getDisplayableAssistantBlocks(message);
+                  processHasToolResultImages ||= assistantHasToolResultImages(message, toolResultsMap);
                   if (blocks.length === 0) {
                     const notices = withNotices ? getTranscriptNotices(processMessage) : [];
                     if (notices.length > 0) processViews.push(<TranscriptNoticeLines key={`process-notices-${messageKeys[processIdx]}`} notices={notices} />);
@@ -1282,12 +1284,12 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
                       key={`process-group-${messageKeys[groupStartIdx]}`}
                       ref={processRefIdx === undefined ? undefined : (el) => { messageRefs.current[processRefIdx] = el; }}
                     >
-                      {/* Re-key on answer availability: useState reads defaultExpanded only
-                          on mount, so a turn first rendered without an answer (expanded)
-                          would otherwise stay open once its answer shows up, e.g. when
-                          switching between an answered and an unanswered leaf of the same
-                          turn. Manual toggles survive every other re-render. */}
-                      <ProcessDetailsGroup key={answered ? "answered" : "unanswered"} messageCount={processMessageCount} toolCallCount={processToolCount} durationMs={turnDurationMs} cacheMisses={processCacheMisses} defaultExpanded={!answered} reveal={revealProcess} t={t}>
+                      {/* Re-key when default visibility changes: useState reads
+                          defaultExpanded only on mount, so a turn first rendered without
+                          an answer (expanded) would otherwise stay open once its answer
+                          shows up, and an image result loaded later would stay hidden.
+                          Manual toggles survive every other re-render. */}
+                      <ProcessDetailsGroup key={answered ? (processHasToolResultImages ? "answered-with-images" : "answered") : "unanswered"} messageCount={processMessageCount} toolCallCount={processToolCount} durationMs={turnDurationMs} cacheMisses={processCacheMisses} defaultExpanded={!answered || processHasToolResultImages} reveal={revealProcess} t={t}>
                         {processViews}
                       </ProcessDetailsGroup>
                     </div>,
