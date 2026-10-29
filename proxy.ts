@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { appPath } from "@/lib/app-path";
 import {
   getAuthRetryAfterMs,
   recordAuthFailure,
@@ -42,7 +43,7 @@ export function proxy(request: NextRequest) {
   const password = process.env.PI_WEB_PASSWORD;
   if (!isWebPasswordEnabled(password)) {
     if (request.nextUrl.pathname === "/login") {
-      return NextResponse.redirect(new URL("/", request.url));
+      return NextResponse.redirect(new URL(appPath("/"), request.url));
     }
     return NextResponse.next();
   }
@@ -63,14 +64,14 @@ export function proxy(request: NextRequest) {
   }
   if (request.nextUrl.pathname === "/login") {
     return authenticated
-      ? NextResponse.redirect(new URL("/", request.url))
+      ? NextResponse.redirect(new URL(appPath("/"), request.url))
       : NextResponse.next();
   }
   if (request.nextUrl.pathname === "/api/web-auth") return NextResponse.next();
 
   if (!authenticated) {
     if (!isApiRequest) {
-      const loginUrl = new URL("/login", request.url);
+      const loginUrl = new URL(appPath("/login"), request.url);
       if (request.nextUrl.search) {
         loginUrl.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
       }
