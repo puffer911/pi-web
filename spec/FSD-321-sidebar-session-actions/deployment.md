@@ -15,7 +15,7 @@ required.
 
 - Repository: `https://github.com/puffer911/pi-web`
 - Branch at integration: `main`
-- Release source commit: TBD until the Coder change is integrated
+- Release source commit: `8f17965f8da729ba4c53d354f3117c3622a3cf0e`
 - Release path: successful GitHub Actions `Vanilla Runtime` artifact
   `pi-web-vanilla-<SHA>` with its checksum and `RELEASE-MANIFEST`
 - Build/install: CI builds the exact source artifact; no npm install/build on
