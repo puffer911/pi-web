@@ -147,6 +147,23 @@ export function hasToolResultImages(result: ToolResultMessage | undefined): bool
   return result?.content.some((block) => block.type === "image") ?? false;
 }
 
+/**
+ * Keep image-bearing live tool results available while a session read replaces
+ * the in-memory transcript. Some tool adapters display an image live without
+ * writing the same block to the session file; the chat can still render that
+ * result until the session changes.
+ */
+export function mergeImageToolResults(
+  retained: ReadonlyMap<string, ToolResultMessage>,
+  candidates: Iterable<ToolResultMessage>,
+): Map<string, ToolResultMessage> {
+  const next = new Map(retained);
+  for (const result of candidates) {
+    if (hasToolResultImages(result)) next.set(result.toolCallId, result);
+  }
+  return next;
+}
+
 export function assistantHasToolResultImages(
   message: AssistantMessage,
   toolResults: ReadonlyMap<string, ToolResultMessage>,

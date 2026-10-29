@@ -19,9 +19,11 @@ import {
   familiesToArchive,
   familiesToDelete,
   familyIds,
+  familyStatus,
   forgetKeptOpenGroups,
   forgetShownMoreOfFolded,
   isFamilyArchived,
+  isFamilyPinned,
   isGroupExpanded,
   keepOutgoingGroupOpen,
   nextProjectKeysToRecord,
@@ -295,7 +297,7 @@ type SessionRow = Extract<SidebarRow, { kind: "session" }>;
  * sessions", an archive header's "Delete all", the archive bar's two).
  */
 type SidebarMenuState =
-  | { kind: "row"; row: SessionRow; anchor: SidebarMenuAnchor; opener: HTMLElement | null }
+  | { kind: "row"; row: SessionRow; anchor: SidebarMenuAnchor; opener: HTMLElement | null; askDelete?: boolean }
   | { kind: "group"; project: SidebarProject; olderCount: number; anchor: SidebarMenuAnchor; opener: HTMLElement; askDelete?: boolean }
   | { kind: "archive-group"; project: SidebarProject; anchor: SidebarMenuAnchor; opener: HTMLElement; askDelete?: boolean }
   | { kind: "archive"; anchor: SidebarMenuAnchor; opener: HTMLElement; askDelete?: ArchiveDeleteScope };
@@ -2024,6 +2026,22 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     setMenu({ kind: "row", row, anchor, opener });
   }, []);
 
+  const openRecentMenu = useCallback((session: SessionInfo, opener: HTMLElement) => {
+    const family = familyByRootId.get(session.id);
+    const project = family ? projectByKey.get(workspaceKeyOf(family.root)) : undefined;
+    if (!family || !project || session.transient || archiveIndex.ids.has(session.id)) return;
+    const row: SessionRow = {
+      kind: "session",
+      key: `session:recent:${session.id}`,
+      family,
+      context: isFamilyPinned(family, uiState, runningSessionIds) ? "pinned" : "group",
+      project,
+      status: familyStatus(family, { uiState, runningIds: runningSessionIds, awaitingIds: awaitingInputSessionIds, unreadIds: unreadSessionIds, selectedSessionId }),
+      archivedAt: null,
+    };
+    openRowMenu(row, buttonAnchor(opener, "end"), opener);
+  }, [archiveIndex.ids, awaitingInputSessionIds, familyByRootId, openRowMenu, projectByKey, runningSessionIds, selectedSessionId, uiState, unreadSessionIds]);
+
   // Right-click: an extension listening for the downstream event (a pi-web
   // integration) claims the row first; only an unclaimed event opens the
   // built-in menu. A transient row has nothing to offer, so the browser's own
@@ -2215,9 +2233,13 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   // another window): its menu goes with it.
   const visibleRows = archiveView ? archiveRows : model.rows;
   useEffect(() => {
-    if (menu?.kind === "row" && !visibleRows.some((row) => row.key === menu.row.key)) setMenu(null);
+    const recentMenuStillExists = menu?.kind === "row"
+      && menu.row.key.startsWith("session:recent:")
+      && familyByRootId.has(menu.row.family.root.id)
+      && !archiveIndex.ids.has(menu.row.family.root.id);
+    if (menu?.kind === "row" && !recentMenuStillExists && !visibleRows.some((row) => row.key === menu.row.key)) setMenu(null);
     if (menu?.kind === "archive-group" && !visibleRows.some((row) => row.key === `archive:${menu.project.key}`)) setMenu(null);
-  }, [menu, visibleRows]);
+  }, [archiveIndex.ids, familyByRootId, menu, visibleRows]);
 
   // Rows are rebuilt on every refresh; the menu acts on the current one.
   const menuRow = menu?.kind === "row"
@@ -2332,7 +2354,16 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
       danger: entry.id === "delete",
       disabled: entry.disabledReason !== undefined,
       disabledReason: entry.disabledReason === "running" ? t("sidebar.cannotArchiveRunning") : undefined,
-      onSelect: ({ shiftKey }) => runSessionAction(entry.id, row, shiftKey),
+      onSelect: ({ shiftKey, keepOpen }) => {
+        if (entry.id === "delete" && row.key.startsWith("session:recent:") && !shiftKey) {
+          keepOpen();
+          setMenu((current) => current?.kind === "row" && current.row.key === row.key
+            ? { ...current, askDelete: true }
+            : current);
+          return;
+        }
+        runSessionAction(entry.id, row, shiftKey);
+      },
     };
   });
 
@@ -2488,6 +2519,22 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     });
   };
 
+  const recentDeleteBody = (row: SessionRow): ReactNode => deleteQuestionBody({
+    heading: t("sidebar.deleteSession", { title: sessionRowTitle(row.family.root) }),
+    headingTitle: sessionRowTitle(row.family.root),
+    notes: [],
+    count: 1,
+    onConfirm: () => {
+      setMenu(null);
+      void performDelete(row.family);
+    },
+    onCancel: () => setMenu((current) => (
+      current?.kind === "row" && current.row.key === row.key
+        ? { ...current, askDelete: false }
+        : current
+    )),
+  });
+
   const archiveGroupMenuItems = (project: SidebarProject): SidebarMenuItem[] => {
     const ids = archiveDeleteIds({ projectKey: project.key });
     return [
@@ -2593,6 +2640,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     menuTitle = sessionRowTitle(menuRow.family.root);
     menuLabel = t("sidebar.sessionActions");
     menuItems = sessionMenuItems(menuRow);
+    if (menu.askDelete && menuRow.key.startsWith("session:recent:")) menuBody = recentDeleteBody(menuRow);
   } else if (menu?.kind === "group") {
     // The project as the tree has it now: pinned, unpinned, renamed or moved in another window while the menu is open.
     const project = projectByKey.get(menu.project.key) ?? menu.project;
@@ -2621,6 +2669,9 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     ? menu.row.key
     : menu?.kind === "group" ? `group:${menu.project.key}`
     : menu?.kind === "archive-group" ? `archive:${menu.project.key}` : null;
+  const activeRecentMenuSessionId = menu?.kind === "row" && menu.row.key.startsWith("session:recent:")
+    ? menu.row.family.root.id
+    : null;
 
   const treeLayout = isMobile ? "mobile" : "desktop";
   // Until pins and archive have loaded, archived rows would flash in.
@@ -3040,6 +3091,8 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
           error={error}
           layout={isMobile ? "mobile" : "desktop"}
           onSelectSession={handleSelectSessionFromList}
+          onOpenMenu={openRecentMenu}
+          menuSessionId={activeRecentMenuSessionId}
         />
       </div>
 

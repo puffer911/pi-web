@@ -1124,7 +1124,7 @@ a.session-tree-main {
 
 /* The Recent tab is a flat, cross-project view. It keeps the same compact
    rhythm as the session tree, while the secondary line identifies the agent
-   or project that owns each session. */
+   and last-activity time; its overflow action opens the same session menu. */
 .recent-session-list {
   display: flex;
   flex: 1 1 auto;
@@ -1156,6 +1156,7 @@ a.session-tree-main {
 
 .recent-session-row {
   position: relative;
+  display: flex;
   min-width: 0;
   min-height: 40px;
   margin: 0 6px;
@@ -1184,12 +1185,13 @@ a.session-tree-main {
 
 .recent-session-main {
   display: grid;
-  grid-template-columns: 6px minmax(0, 1fr);
+  flex: 1 1 auto;
+  grid-template-columns: 12px minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) auto;
   min-width: 0;
   min-height: 40px;
   align-items: center;
-  column-gap: 7px;
+  column-gap: 2px;
   row-gap: 1px;
   box-sizing: border-box;
   padding: 4px 6px;
@@ -1206,16 +1208,49 @@ a.session-tree-main {
   outline-offset: -2px;
 }
 
+.recent-session-more-action {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  align-self: center;
+  margin: 0 2px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.recent-session-more-action:hover,
+.recent-session-more-action.is-active {
+  background: var(--bg-selected);
+  color: var(--text);
+}
+
+.recent-session-more-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 .recent-session-status {
   grid-row: 1 / -1;
   align-self: center;
+  justify-self: center;
   width: 6px;
   height: 6px;
   border-radius: 50%;
 }
 
 .recent-session-status.is-running {
-  background: var(--status-running);
+  display: block;
+  width: 12px;
+  height: 12px;
+  color: var(--status-running);
+  background: transparent;
 }
 
 .recent-session-status.is-awaiting,
@@ -1252,8 +1287,7 @@ a.session-tree-main {
   white-space: nowrap;
 }
 
-.recent-session-agent,
-.recent-session-project {
+.recent-session-agent {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1269,6 +1303,11 @@ a.session-tree-main {
 .recent-session-list.is-mobile .recent-session-row,
 .recent-session-list.is-mobile .recent-session-main {
   min-height: 48px;
+}
+
+.recent-session-list.is-mobile .recent-session-more-action {
+  width: 32px;
+  height: 32px;
 }
 
 .recent-session-list.is-mobile .recent-session-row.is-selected::before {

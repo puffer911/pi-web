@@ -7,6 +7,7 @@ import { isPlainActivation, sessionDeepLink } from "@/lib/session-links";
 import { useI18n } from "@/hooks/useI18n";
 import { useScrollbarVisibility } from "@/hooks/useScrollbarVisibility";
 import { sessionRowTitle } from "./SessionTree";
+import { MoreIcon, SpinnerIcon } from "./SidebarIcons";
 
 const RECENT_SESSION_LIMIT = 100;
 
@@ -23,6 +24,8 @@ interface Props {
   error: string | null;
   layout: "desktop" | "mobile";
   onSelectSession: (session: SessionInfo) => void;
+  onOpenMenu?: (session: SessionInfo, opener: HTMLElement) => void;
+  menuSessionId?: string | null;
 }
 
 function sessionTime(session: SessionInfo): number {
@@ -30,32 +33,9 @@ function sessionTime(session: SessionInfo): number {
   return Number.isNaN(time) ? -Infinity : time;
 }
 
-function lastPathSegment(path: string): string {
-  const trimmed = path.replace(/[\\/]+$/, "");
-  if (!trimmed) return path;
-  const separator = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
-  return trimmed.slice(separator + 1) || trimmed;
-}
-
 function agentPathSegment(cwd: string): string | null {
   const segments = cwd.split(/[\\/]+/).filter(Boolean);
   return [...segments].reverse().find((segment) => /^agent(?:[-_].+)?$/i.test(segment)) ?? null;
-}
-
-/** The resolved project root is more useful than a worktree cwd as the label. */
-export function recentSessionProjectLabel(session: SessionInfo): string {
-  const root = session.projectRoot ?? session.cwd;
-  const project = lastPathSegment(root);
-  const agent = agentPathSegment(session.cwd);
-  // Some agent workspaces resolve to the agent directory itself. Its parent is
-  // the useful project label; do not render the same path segment twice.
-  if (agent && project.toLowerCase() === agent.toLowerCase()) {
-    const trimmed = root.replace(/[\\/]+$/, "");
-    const separator = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
-    const parent = trimmed.slice(0, separator);
-    if (parent) return lastPathSegment(parent);
-  }
-  return project;
 }
 
 /**
@@ -90,6 +70,8 @@ export function RecentSessionList({
   error,
   layout,
   onSelectSession,
+  onOpenMenu,
+  menuSessionId,
 }: Props) {
   const { locale, t } = useI18n();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -129,13 +111,13 @@ export function RecentSessionList({
                 : t("sidebar.sessionIdle");
           const title = sessionRowTitle(session);
           const agent = recentSessionAgentLabel(session) ?? t("sidebar.unknownAgent");
-          const project = recentSessionProjectLabel(session);
           const time = formatShortRelativeTime(session.modified, locale, new Date(now));
-          const details = t("sidebar.recentSessionDetails", { agent, project, time });
+          const details = t("sidebar.recentSessionDetails", { agent, time });
           const selected = session.id === selectedSessionId;
+          const menuOpen = session.id === menuSessionId;
 
           return (
-            <div key={session.id} className={`recent-session-row${selected ? " is-selected" : ""}`}>
+            <div key={session.id} className={`recent-session-row${selected ? " is-selected" : ""}${menuOpen ? " is-menu-open" : ""}`}>
               <a
                 className="recent-session-main"
                 href={sessionDeepLink(session.id)}
@@ -147,15 +129,34 @@ export function RecentSessionList({
                   onSelectSession(session);
                 }}
               >
-                <span className={`recent-session-status is-${status}`} role="img" aria-label={statusLabel} title={statusLabel} />
+                {status === "running" ? (
+                  <SpinnerIcon size={12} label={statusLabel} className="recent-session-status is-running" />
+                ) : (
+                  <span className={`recent-session-status is-${status}`} role="img" aria-label={statusLabel} title={statusLabel} />
+                )}
                 <span className="recent-session-title">{title}</span>
                 <span className="recent-session-details">
                   <span className="recent-session-agent">{agent}</span>
                   <span aria-hidden="true">·</span>
-                  <span className="recent-session-project">{project}</span>
                   <span className="recent-session-time">{time}</span>
                 </span>
               </a>
+              {onOpenMenu && (
+                <button
+                  type="button"
+                  className={`recent-session-more-action${menuOpen ? " is-active" : ""}`}
+                  aria-label={t("sidebar.moreActions")}
+                  title={t("sidebar.moreActions")}
+                  aria-haspopup="menu"
+                  aria-expanded={menuOpen}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onOpenMenu(session, event.currentTarget);
+                  }}
+                >
+                  <MoreIcon size={14} />
+                </button>
+              )}
             </div>
           );
         })}

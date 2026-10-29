@@ -364,7 +364,7 @@ export const zhCNLocale: LocalePlugin = {
     "sidebar.newSessionActivity": "会话有新活动",
     "sidebar.sessionIdle": "空闲",
     "sidebar.unknownAgent": "未知 Agent",
-    "sidebar.recentSessionDetails": "{agent} · {project} · {time}",
+    "sidebar.recentSessionDetails": "{agent} · {time}",
     "sidebar.noRecentSessions": "暂无最近会话",
     "sidebar.deleteSession": "删除 {title}？",
     "sidebar.rename": "重命名",

@@ -364,7 +364,7 @@ export const enLocale: LocalePlugin = {
     "sidebar.newSessionActivity": "New session activity",
     "sidebar.sessionIdle": "Idle",
     "sidebar.unknownAgent": "Unknown agent",
-    "sidebar.recentSessionDetails": "{agent} · {project} · {time}",
+    "sidebar.recentSessionDetails": "{agent} · {time}",
     "sidebar.noRecentSessions": "No recent sessions",
     "sidebar.deleteSession": "Delete {title}?",
     "sidebar.rename": "Rename",

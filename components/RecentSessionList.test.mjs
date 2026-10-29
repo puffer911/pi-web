@@ -6,7 +6,7 @@ const jiti = createJiti(import.meta.url, { jsx: { runtime: "automatic" }, tsconf
 const React = await jiti.import("react");
 const { renderToStaticMarkup } = await jiti.import("react-dom/server");
 const { I18nProvider } = await jiti.import("@/hooks/useI18n");
-const { RecentSessionList, recentSessionAgentLabel, recentSessionProjectLabel, recentSessionStatus } = await jiti.import("./RecentSessionList.tsx");
+const { RecentSessionList, recentSessionAgentLabel, recentSessionStatus } = await jiti.import("./RecentSessionList.tsx");
 
 const h = React.createElement;
 const noop = () => {};
@@ -60,10 +60,9 @@ test("sorts recent saved top-level sessions and omits archived, transient and su
   assert.doesNotMatch(html, /session=archived|session=transient|session=child/);
   assert.match(html, /recent-session-agent">agent-coder<\/span>/);
   assert.match(html, /recent-session-agent">agent-designer<\/span>/);
-  assert.match(html, /recent-session-project">work<\/span>/);
 });
 
-test("renders green, amber and idle status dots", () => {
+test("renders running, attention and idle status indicators", () => {
   const running = session("running");
   const awaiting = session("awaiting", "/work/agent-designer", 1_000);
   const idle = session("idle", "/work/agent-marketing", 2_000);
@@ -78,9 +77,16 @@ test("renders green, amber and idle status dots", () => {
   assert.match(html, /recent-session-status is-unread[^>]*aria-label="New activity/);
   assert.equal(recentSessionStatus(awaiting, new Set([awaiting.id]), new Set([awaiting.id]), new Set()), "awaiting");
   assert.equal(recentSessionAgentLabel(running), "agent-coder");
-  assert.equal(recentSessionProjectLabel(running), "work");
   assert.equal(recentSessionAgentLabel(session("plain", "/work/projects/pi-web")), null);
-  assert.equal(recentSessionProjectLabel(session("repo", "/root/gitrepo/flystudio/agent-coder")), "flystudio");
+  assert.doesNotMatch(html, /recent-session-project/);
+});
+
+test("renders an always-visible Recent row menu without showing the project path", () => {
+  const running = session("running", "/work/agent-coder");
+  const html = render({ sessions: [running], onOpenMenu: noop });
+  assert.match(html, /recent-session-more-action[^>]*aria-label="More actions"/);
+  assert.match(html, /<span class="recent-session-agent">agent-coder<\/span><span aria-hidden="true">·<\/span><span class="recent-session-time">/);
+  assert.doesNotMatch(html, /recent-session-project/);
 });
 
 test("shows loading, error and empty states", () => {

@@ -817,9 +817,7 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
   const toolResultsMap = useMemo(() => {
     const map = new Map(activeToolResults);
     for (const msg of messages) {
-      if (msg.role === "toolResult") {
-        map.set((msg as ToolResultMessage).toolCallId, msg as ToolResultMessage);
-      }
+      if (msg.role === "toolResult") map.set((msg as ToolResultMessage).toolCallId, msg as ToolResultMessage);
     }
     return map;
   }, [activeToolResults, messages]);

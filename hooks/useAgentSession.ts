@@ -46,6 +46,7 @@ import { updateExtensionWidgets } from "@/lib/extension-widgets";
 import { bareMcpOpensSettings } from "@/lib/mcp-command";
 import type { SettingsSection } from "@/lib/settings-navigation";
 import { withTranscriptNotices, type TranscriptNotice } from "@/lib/transcript-notices";
+import { mergeImageToolResults } from "@/lib/message-display";
 import {
   enqueueExtensionUiRequest,
   removeExtensionUiRequest,
@@ -450,6 +451,10 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const reattachEventStreamRef = useRef<(sid: string) => void>(() => {});
   const sessionIdRef = useRef<string | null>(session?.id ?? null);
   const sessionPropIdRef = useRef<string | null>(session?.id ?? null);
+  const retainedImageToolResultsRef = useRef<{ sessionId: string | null; results: Map<string, ToolResultMessage> }>({
+    sessionId: session?.id ?? null,
+    results: new Map(),
+  });
   // False while the session carries no tool selection of its own, so its loadout
   // follows settings.json defaultTools and the picker must say so rather than
   // labelling it with whichever preset the resolved tools happen to match.
@@ -509,6 +514,27 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   historyCursorRef.current = historyCursor;
   hasEarlierMessagesRef.current = hasEarlierMessages;
   earlierTurnCountRef.current = earlierTurnCount;
+
+  // A live tool can emit an image before its result is written to the session
+  // transcript. Keep image-bearing results for this session so load/reconcile
+  // refreshes do not make an already-rendered image disappear. The transcript
+  // remains the persistence boundary: a remount/reload still needs the server
+  // to return the result.
+  const displayToolResults = useMemo(() => {
+    const sid = session?.id ?? sessionIdRef.current;
+    const retained = retainedImageToolResultsRef.current;
+    if (retained.sessionId !== sid) {
+      retained.sessionId = sid;
+      retained.results = new Map();
+    }
+    retained.results = mergeImageToolResults(retained.results, [
+      ...activeToolResults.values(),
+      ...messages.filter((message): message is ToolResultMessage => message.role === "toolResult"),
+    ]);
+    const next = new Map(retained.results);
+    for (const result of activeToolResults.values()) next.set(result.toolCallId, result);
+    return next;
+  }, [activeToolResults, messages, session?.id]);
 
   if (!eventConnectionRef.current) {
     eventConnectionRef.current = new AgentEventConnection({
@@ -701,6 +727,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       if (options?.force) params.set("force", "1");
       const res = await fetch(`/api/sessions/${encodeURIComponent(sid)}?${params}`);
       if (res.status === 404) {
+        retainedImageToolResultsRef.current = { sessionId: sid, results: new Map() };
         if (showLoading) {
           setData(null);
           setActiveLeafId(null);
@@ -2921,7 +2948,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
 
   return {
     // State
-    data, loading, error, activeLeafId, messages, activeToolResults, entryIds, messageKeys, historyCursor, hasEarlierMessages, earlierTurnCount, streamingStore,
+    data, loading, error, activeLeafId, messages, activeToolResults: displayToolResults, entryIds, messageKeys, historyCursor, hasEarlierMessages, earlierTurnCount, streamingStore,
     agentRunning, modelNames, modelList, modelError, modelScopeWarnings, modelThinkingLevels, modelThinkingLevelMaps, newSessionModel, toolPreset, thinkingLevel,
     retryInfo, contextUsage, systemPrompt, forkingEntryId,
     isCompacting, compactError, compactResult, currentModel, displayModel, modelSwitching, sessionStats, autoCompactionEnabled,

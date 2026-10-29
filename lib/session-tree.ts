@@ -108,7 +108,7 @@ export interface SessionTreeModel {
   projectKeysToRecord: string[];
 }
 
-type FamilyFlagsInput = Pick<SessionTreeInput, "uiState" | "runningIds" | "awaitingIds" | "unreadIds" | "selectedSessionId">;
+export type FamilyFlagsInput = Pick<SessionTreeInput, "uiState" | "runningIds" | "awaitingIds" | "unreadIds" | "selectedSessionId">;
 
 function familyEntry(state: SessionUiState, rootId: string): SessionUiFamilyState | undefined {
   // Session ids such as "constructor" must not resolve to Object.prototype members.
@@ -237,7 +237,7 @@ export function forgetKeptOpenGroups(keptOpen: ReadonlySet<string>, keys: readon
   return next;
 }
 
-function familyStatus(family: SessionFamily, input: FamilyFlagsInput): SidebarFamilyStatus {
+export function familyStatus(family: SessionFamily, input: FamilyFlagsInput): SidebarFamilyStatus {
   return {
     running: anyMemberIn(family, input.runningIds),
     awaiting: input.awaitingIds ? anyMemberIn(family, input.awaitingIds) : false,

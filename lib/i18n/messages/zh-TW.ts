@@ -364,7 +364,7 @@ export const zhTWLocale: LocalePlugin = {
     "sidebar.newSessionActivity": "工作階段有新活動",
     "sidebar.sessionIdle": "閒置",
     "sidebar.unknownAgent": "未知 Agent",
-    "sidebar.recentSessionDetails": "{agent} · {project} · {time}",
+    "sidebar.recentSessionDetails": "{agent} · {time}",
     "sidebar.noRecentSessions": "沒有最近工作階段",
     "sidebar.deleteSession": "刪除 {title}？",
     "sidebar.rename": "重新命名",
