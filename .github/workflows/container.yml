@@ -35,6 +35,83 @@ jobs:
         env:
           NEXT_PUBLIC_BASE_PATH: ${{ env.PI_WEB_BASE_PATH }}
 
+  vanilla:
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.19.0
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_BASE_PATH: ${{ env.PI_WEB_BASE_PATH }}
+      - run: npm prune --omit=dev
+
+      - name: Assemble vanilla release
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_root="$RUNNER_TEMP/pi-web-vanilla"
+          mkdir -p "$release_root/lib"
+          cp -a package.json package-lock.json next.config.ts bin public .next node_modules "$release_root/"
+          cp -a lib/app-path.ts lib/app-path.js "$release_root/lib/"
+          printf '%s\n' \
+            'artifact_format=pi-web-vanilla-v1' \
+            "source_commit=${GITHUB_SHA}" \
+            "node_version=$(node --version)" \
+            "base_path=${PI_WEB_BASE_PATH}" \
+            > "$release_root/RELEASE-MANIFEST"
+          mkdir -p dist
+          tar --sort=name --owner=0 --group=0 --numeric-owner \
+            -C "$release_root" -czf "dist/pi-web-vanilla-${GITHUB_SHA}.tar.gz" .
+          (cd dist && sha256sum "pi-web-vanilla-${GITHUB_SHA}.tar.gz" > "pi-web-vanilla-${GITHUB_SHA}.tar.gz.sha256")
+          cp "$release_root/RELEASE-MANIFEST" dist/
+
+      - name: Smoke-test vanilla release
+        shell: bash
+        run: |
+          set -euo pipefail
+          smoke_root="$RUNNER_TEMP/pi-web-vanilla-smoke"
+          mkdir -p "$smoke_root/agent"
+          tar -xzf "dist/pi-web-vanilla-${GITHUB_SHA}.tar.gz" -C "$smoke_root"
+          (
+            cd "$smoke_root"
+            env PI_CODING_AGENT_DIR="$smoke_root/agent" \
+              PI_WEB_HOSTNAME=127.0.0.1 \
+              NEXT_PUBLIC_BASE_PATH=${{ env.PI_WEB_BASE_PATH }} \
+              PI_WEB_NO_OPEN=1 \
+              PI_WEB_SKIP_VERSION_CHECK=1 \
+              PORT=30142 \
+              node bin/pi-web.js --no-open --hostname 127.0.0.1 --port 30142
+          ) > "$RUNNER_TEMP/pi-web-vanilla.log" 2>&1 &
+          pid=$!
+          cleanup() { kill "$pid" >/dev/null 2>&1 || true; wait "$pid" >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+          for attempt in {1..30}; do
+            status="$(curl --location --silent --output /tmp/pi-web-vanilla.html --write-out '%{http_code}' http://127.0.0.1:30142/pi-web/ || true)"
+            if [[ "$status" == "200" ]] && grep -q "Pi Web" /tmp/pi-web-vanilla.html; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/pi-web-vanilla.log"
+          echo "Pi Web vanilla smoke failed with HTTP status ${status:-unknown}" >&2
+          exit 1
+
+      - name: Upload vanilla release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pi-web-vanilla-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 90
+
   image:
     needs: checks
     runs-on: ubuntu-latest
