@@ -65,7 +65,7 @@ export async function checkFilesPlacement(page) {
 
   await choose("Separate tab");
   await tablist.waitFor();
-  assert.equal(await tablist.getByRole("tab").count(), 2);
+  assert.equal(await tablist.getByRole("tab").count(), 3);
   assert.equal(await tablist.getByRole("tab", { name: "Files", exact: true }).count(), 1);
   assert.equal(await sessions.count() + await files.count(), 0, "The panels are the tabs' again");
   assert.equal(await page.locator(".sidebar-files-section").count(), 0);
