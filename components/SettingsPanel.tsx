@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { appFetch } from "@/lib/app-path";
+import { appFetch, appPath } from "@/lib/app-path";
 
 const fetch = appFetch;
 import { useI18n } from "@/hooks/useI18n";
@@ -110,7 +110,7 @@ function GeneralSettings({ sessionId, onSessionReloaded, quoteSelectionEnabled, 
     try {
       const response = await fetch("/api/web-auth", { method: "DELETE" });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      window.location.replace("/login");
+      window.location.replace(appPath("/login"));
     } catch {
       setLogoutError(t("auth.logoutFailed"));
     } finally {

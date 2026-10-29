@@ -842,7 +842,9 @@ export function AppShell() {
       // the default welcome page when none is remembered.
       if (!skipWorkspaceRestore) restoreWorkspaceContext(newProject, cwd);
     }
-    router.replace(typeof window !== "undefined" ? window.location.pathname : "/", { scroll: false });
+    // Next's App Router applies basePath to router URLs. Passing the browser's
+    // already-prefixed pathname here would navigate to /pi-web/pi-web.
+    router.replace("/", { scroll: false });
   }, [activeCwd, changeFileWorkspace, invalidateWorkspaceRestore, newSessionCwd, router, selectedSession, restoreWorkspaceContext]);
 
   const handleSelectSession = useCallback((session: SessionInfo, isRestore = false, entryId?: string, blockIndex?: number, options?: SelectSessionOptions) => {
@@ -1179,7 +1181,9 @@ export function AppShell() {
       setSystemTools(null);
       setSystemInfoLoading(false);
       setActiveTopPanel(null);
-      router.replace(cwd ? `?cwd=${encodeURIComponent(cwd)}` : (typeof window !== "undefined" ? window.location.pathname : "/"), { scroll: false });
+      // Keep the fallback route basePath-relative; the browser pathname already
+      // includes /pi-web and would be prefixed again by the App Router.
+      router.replace(cwd ? `?cwd=${encodeURIComponent(cwd)}` : "/", { scroll: false });
     }
   }, [invalidateWorkspaceRestore, router]);
 
