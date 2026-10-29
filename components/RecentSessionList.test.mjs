@@ -81,7 +81,7 @@ test("renders running, attention and idle status indicators", () => {
   assert.doesNotMatch(html, /recent-session-project/);
 });
 
-test("renders an always-visible Recent row menu without showing the project path", () => {
+test("renders a Recent row menu without showing the project path", () => {
   const running = session("running", "/work/agent-coder");
   const html = render({ sessions: [running], onOpenMenu: noop });
   assert.match(html, /recent-session-more-action[^>]*aria-label="More actions"/);

@@ -1223,6 +1223,20 @@ a.session-tree-main {
   background: transparent;
   color: var(--text-dim);
   cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.recent-session-row:hover .recent-session-more-action,
+.recent-session-row:focus-within .recent-session-more-action,
+.recent-session-row.is-menu-open .recent-session-more-action,
+.recent-session-more-action:focus-visible,
+.recent-session-list.is-mobile .recent-session-more-action {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .recent-session-more-action:hover,
@@ -1308,6 +1322,12 @@ a.session-tree-main {
 .recent-session-list.is-mobile .recent-session-more-action {
   width: 32px;
   height: 32px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recent-session-more-action {
+    transition: none;
+  }
 }
 
 .recent-session-list.is-mobile .recent-session-row.is-selected::before {

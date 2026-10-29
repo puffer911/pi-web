@@ -11,7 +11,7 @@ import { normalizeCustomPanelLines } from "@/lib/ansi";
 import { splitNoticeText } from "@/lib/notice-text";
 import { EXTENSION_DIALOG_BASE_WIDTH, fitExtensionDialogWidth } from "@/lib/extension-dialog-fit";
 import { asBracketedPaste, toTerminalKeyData } from "@/lib/terminal-input";
-import { assistantHasToolResultImages, collapsesProcessDetails, countToolCallBlocks, getDisplayableAssistantBlocks, hasAssistantAnswer, isHiddenCustomMessage, isMessageGroupAnchor, splitFinalAssistantBlocks } from "@/lib/message-display";
+import { assistantHasToolResultImages, collapsesProcessDetails, countToolCallBlocks, getDisplayableAssistantBlocks, hasAssistantAnswer, isHiddenCustomMessage, isMessageGroupAnchor, mergeToolResultsForDisplay, splitFinalAssistantBlocks } from "@/lib/message-display";
 import { extractTurnWrittenFiles, type WrittenFile } from "@/lib/turn-written-files";
 import { getFinalAnswerViews, keepWrittenFiles, type FinalAnswerViews } from "@/lib/turn-views";
 import { formatTurnDuration, getTurnDurationMs } from "@/lib/turn-duration";
@@ -814,13 +814,10 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
   // (the streaming message lives in streamingStore), so memoized MessageViews
   // skip re-rendering on every message_update event. An inline `new Map()`
   // here used to defeat MessageView's memo() on each streamed chunk.
-  const toolResultsMap = useMemo(() => {
-    const map = new Map(activeToolResults);
-    for (const msg of messages) {
-      if (msg.role === "toolResult") map.set((msg as ToolResultMessage).toolCallId, msg as ToolResultMessage);
-    }
-    return map;
-  }, [activeToolResults, messages]);
+  const toolResultsMap = useMemo(() => mergeToolResultsForDisplay(
+    activeToolResults,
+    messages.filter((message): message is ToolResultMessage => message.role === "toolResult"),
+  ), [activeToolResults, messages]);
   // Same idea for the copies a grouped turn passes MessageView (see getFinalAnswerViews).
   const finalAnswerViewCache = useMemo(() => new WeakMap<AssistantMessage, FinalAnswerViews>(), []);
   const inputHistory = useMemo(() => {

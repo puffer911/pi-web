@@ -46,7 +46,7 @@ import { updateExtensionWidgets } from "@/lib/extension-widgets";
 import { bareMcpOpensSettings } from "@/lib/mcp-command";
 import type { SettingsSection } from "@/lib/settings-navigation";
 import { withTranscriptNotices, type TranscriptNotice } from "@/lib/transcript-notices";
-import { mergeImageToolResults } from "@/lib/message-display";
+import { mergeImageToolResults, mergeToolResultsForDisplay } from "@/lib/message-display";
 import {
   enqueueExtensionUiRequest,
   removeExtensionUiRequest,
@@ -520,21 +520,23 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   // refreshes do not make an already-rendered image disappear. The transcript
   // remains the persistence boundary: a remount/reload still needs the server
   // to return the result.
-  const displayToolResults = useMemo(() => {
+  const retainLiveImageToolResults = useCallback((candidates: Iterable<ToolResultMessage>) => {
     const sid = session?.id ?? sessionIdRef.current;
     const retained = retainedImageToolResultsRef.current;
     if (retained.sessionId !== sid) {
       retained.sessionId = sid;
       retained.results = new Map();
     }
-    retained.results = mergeImageToolResults(retained.results, [
+    retained.results = mergeImageToolResults(retained.results, candidates);
+  }, [session?.id]);
+
+  const displayToolResults = useMemo(() => {
+    retainLiveImageToolResults([
       ...activeToolResults.values(),
       ...messages.filter((message): message is ToolResultMessage => message.role === "toolResult"),
     ]);
-    const next = new Map(retained.results);
-    for (const result of activeToolResults.values()) next.set(result.toolCallId, result);
-    return next;
-  }, [activeToolResults, messages, session?.id]);
+    return mergeToolResultsForDisplay(retainedImageToolResultsRef.current.results, activeToolResults.values());
+  }, [activeToolResults, messages, retainLiveImageToolResults]);
 
   if (!eventConnectionRef.current) {
     eventConnectionRef.current = new AgentEventConnection({
@@ -744,6 +746,14 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const d = await res.json() as SessionData;
       if (sessionIdRef.current !== sid) return null;
+      // Capture both sides before React batches the transcript replacement. A
+      // live read result can otherwise be observed only in an intermediate
+      // render and then lost when the reconciliation response contains text
+      // without its image block.
+      retainLiveImageToolResults([
+        ...messagesRef.current.filter((message): message is ToolResultMessage => message.role === "toolResult"),
+        ...d.context.messages.filter((message): message is ToolResultMessage => message.role === "toolResult"),
+      ]);
       // Freshness check: when the disk snapshot is unchanged (same opaque
       // revision), keep any history the user already paged in instead of
       // collapsing back to the fresh 50-entry window. The state hooks then
@@ -872,7 +882,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       if (loadFlightsRef.current.get(flightKey) === flight) loadFlightsRef.current.delete(flightKey);
     });
     return await flight;
-  }, [applyLiveUsage, setToolPresetState, syncLiveModel]);
+  }, [applyLiveUsage, retainLiveImageToolResults, setToolPresetState, syncLiveModel]);
 
   const loadContext = useCallback(async (sid: string, leafId: string | null, before?: string | null, options?: { tail?: number; signal?: AbortSignal }) => {
     try {
@@ -1401,6 +1411,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     // must not overwrite the messages of the run currently streaming.
     if (promptRunIdRef.current !== runId) return;
     try {
+      retainLiveImageToolResults(messagesRef.current.filter((message): message is ToolResultMessage => message.role === "toolResult"));
       if (sid) await loadSession(sid);
     } finally {
       if (promptRunIdRef.current !== runId) return;
@@ -1417,7 +1428,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       }
       if (sid) scheduleEventStreamClose(sid);
     }
-  }, [loadSession, notifyPromptStage, onAgentEnd, scheduleEventStreamClose, settleUiStage]);
+  }, [loadSession, notifyPromptStage, onAgentEnd, retainLiveImageToolResults, scheduleEventStreamClose, settleUiStage]);
 
   const waitForPromptSettlement = useCallback(async (sid: string, runId?: number) => {
     await delay(PROMPT_SETTLE_INITIAL_DELAY_MS);
@@ -1705,6 +1716,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         if (!agentRunningRef.current) break;
         if (isSystemMessageEvent(event)) break;
         const completed = event.message as AgentMessage | undefined;
+        if (completed?.role === "toolResult") retainLiveImageToolResults([completed]);
         if (completed && completed.role === "user") {
           // Delivered steering/follow-up messages surface here as user
           // messages. The run's initial prompt also emits one, but handleSend
@@ -1843,7 +1855,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         setExtensionDialogs((queue) => removeExtensionUiRequest(queue, event.id as string));
         break;
     }
-  }, [addNotice, applyLiveUsage, cancelEventStreamGrace, dispatch, handleExtensionUiRequest, loadSession, notifyPromptStage, onAgentEnd, onToolEnd, refreshContextUsage, scheduleEventStreamClose, scrollToBottom, settleUiStage, syncLiveModel]);
+  }, [addNotice, applyLiveUsage, cancelEventStreamGrace, dispatch, handleExtensionUiRequest, loadSession, notifyPromptStage, onAgentEnd, onToolEnd, refreshContextUsage, retainLiveImageToolResults, scheduleEventStreamClose, scrollToBottom, settleUiStage, syncLiveModel]);
   handleAgentEventRef.current = handleAgentEvent;
 
   const handleSend = useCallback(async (message: string, images?: AttachedImage[]) => {

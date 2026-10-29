@@ -164,6 +164,25 @@ export function mergeImageToolResults(
   return next;
 }
 
+/**
+ * Merge live/retained results with transcript results without letting a
+ * reconciliation placeholder erase a live image. When both sides contain an
+ * image, the transcript wins because it may already use the lazy session URL.
+ */
+export function mergeToolResultsForDisplay(
+  retained: ReadonlyMap<string, ToolResultMessage>,
+  transcript: Iterable<ToolResultMessage>,
+): Map<string, ToolResultMessage> {
+  const next = new Map(retained);
+  for (const result of transcript) {
+    const existing = next.get(result.toolCallId);
+    if (!existing || hasToolResultImages(result) || !hasToolResultImages(existing)) {
+      next.set(result.toolCallId, result);
+    }
+  }
+  return next;
+}
+
 export function assistantHasToolResultImages(
   message: AssistantMessage,
   toolResults: ReadonlyMap<string, ToolResultMessage>,
