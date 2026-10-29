@@ -35,13 +35,14 @@ function sessionTime(session: SessionInfo): number {
 
 function agentPathSegment(cwd: string): string | null {
   const segments = cwd.split(/[\\/]+/).filter(Boolean);
-  return [...segments].reverse().find((segment) => /^agent(?:[-_].+)?$/i.test(segment)) ?? null;
+  return [...segments].reverse().find((segment) => /^agent(?:[-_].+)?$/i.test(segment) || /^sre$/i.test(segment)) ?? null;
 }
 
 /**
  * Pi does not persist a separate agent identity in SessionInfo. Agent lanes in
- * the shared workspace are conventionally named `agent-*`; expose that path
- * component when it is available, without guessing for ordinary projects.
+ * the shared workspace are conventionally named `agent-*`; the SRE lane uses
+ * a plain `sre` segment. Expose that path component when it is available,
+ * without guessing for ordinary projects.
  */
 export function recentSessionAgentLabel(session: SessionInfo): string | null {
   return agentPathSegment(session.cwd);

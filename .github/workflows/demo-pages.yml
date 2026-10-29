@@ -4,8 +4,6 @@ name: Demo
 # Pull requests that touch the demo only build it.
 
 on:
-  push:
-    branches: [main]
   pull_request:
     paths:
       - "demo/**"

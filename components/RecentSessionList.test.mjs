@@ -77,6 +77,7 @@ test("renders running, attention and idle status indicators", () => {
   assert.match(html, /recent-session-status is-unread[^>]*aria-label="New activity/);
   assert.equal(recentSessionStatus(awaiting, new Set([awaiting.id]), new Set([awaiting.id]), new Set()), "awaiting");
   assert.equal(recentSessionAgentLabel(running), "agent-coder");
+  assert.equal(recentSessionAgentLabel(session("sre", "/work/sre")), "sre");
   assert.equal(recentSessionAgentLabel(session("plain", "/work/projects/pi-web")), null);
   assert.doesNotMatch(html, /recent-session-project/);
 });
