@@ -15,7 +15,7 @@ TLS, or authentication change is required.
 
 - Repository: `https://github.com/puffer911/pi-web`
 - Branch at integration: `main`
-- Release source commit: TBD until the Coder change is integrated
+- Release source commit: `3c564ba7fb113af95c4fac6e01edc5c05090e8af`
 - Release path: successful GitHub Actions `Vanilla Runtime` artifact
   `pi-web-vanilla-<SHA>` with its checksum and `RELEASE-MANIFEST`
 - Build/install: CI builds the exact source artifact; no npm install/build on
