@@ -1,4 +1,4 @@
-name: Container
+name: Vanilla Runtime
 
 on:
   push:
@@ -7,14 +7,12 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
-  group: container-${{ github.ref }}
+  group: vanilla-runtime-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  IMAGE_NAME: ghcr.io/puffer911/pi-web
   PI_WEB_BASE_PATH: /pi-web
 
 jobs:
@@ -111,79 +109,3 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 90
-
-  image:
-    needs: checks
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: docker/setup-buildx-action@v3
-
-      - name: Build image for smoke test
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Containerfile
-          load: true
-          tags: pi-web:ci-${{ github.sha }}
-          build-args: |
-            NEXT_PUBLIC_BASE_PATH=${{ env.PI_WEB_BASE_PATH }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Smoke-test the prefixed image
-        shell: bash
-        run: |
-          set -euo pipefail
-          docker run --detach --rm \
-            --name pi-web-smoke \
-            --publish 30141:30141 \
-            --env PI_WEB_HOSTNAME=0.0.0.0 \
-            --env PI_WEB_NO_OPEN=1 \
-            --env PI_WEB_SKIP_VERSION_CHECK=1 \
-            --env PI_CODING_AGENT_DIR=/tmp/pi-agent \
-            pi-web:ci-${GITHUB_SHA} \
-            --no-open --hostname 0.0.0.0 --port 30141
-          cleanup() { docker stop pi-web-smoke >/dev/null 2>&1 || true; }
-          trap cleanup EXIT
-          for attempt in {1..30}; do
-            status="$(curl --location --silent --output /tmp/pi-web-smoke.html --write-out '%{http_code}' http://127.0.0.1:30141/pi-web/ || true)"
-            if [[ "$status" == "200" ]] && grep -q "Pi Web" /tmp/pi-web-smoke.html; then
-              exit 0
-            fi
-            sleep 2
-          done
-          docker logs pi-web-smoke
-          echo "Pi Web prefixed smoke failed with HTTP status ${status:-unknown}" >&2
-          exit 1
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract image metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=sha-${{ github.sha }}
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Containerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            NEXT_PUBLIC_BASE_PATH=${{ env.PI_WEB_BASE_PATH }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
