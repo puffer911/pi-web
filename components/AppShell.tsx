@@ -27,6 +27,7 @@ import { useFontPreferences } from "@/hooks/useFontPreferences";
 import { useI18n } from "@/hooks/useI18n";
 import { useIsMobile, useIsNarrowMobile } from "@/hooks/useIsMobile";
 import { useViewportHeight } from "@/hooks/useViewportHeight";
+import { useRunningFavicon } from "@/hooks/useRunningFavicon";
 import { useResizablePanel } from "@/hooks/useResizablePanel";
 import { useAudio } from "@/hooks/useAudio";
 import { copyText } from "@/lib/clipboard";
@@ -177,6 +178,7 @@ export function AppShell() {
   );
   const hasSubagentSessions = Boolean(activeSessionFamily?.subagents.length);
   const [runningSessionIds, setRunningSessionIds] = useState<Set<string>>(() => new Set());
+  useRunningFavicon(runningSessionIds.size > 0);
   const handleRunningSessionIdsChange = useCallback((ids: Set<string>) => {
     setRunningSessionIds((previous) => {
       if (previous.size === ids.size && [...ids].every((id) => previous.has(id))) return previous;
