@@ -14,6 +14,9 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { parseCompactionSummary } from "@/lib/compaction-summary";
 import { getAssistantErrorMessage, getThinkingPreview, hasAssistantAnswer, isAssistantTruncated, isEmptyThinkingBlock, splitThinkingPieces } from "@/lib/message-display";
 import { formatTurnDuration } from "@/lib/turn-duration";
+import { resolveLocalFilePath } from "@/lib/file-links";
+import { getFileName } from "@/lib/file-paths";
+import { isImagePath } from "@/lib/file-types";
 import { diffGapLabel, parseUnifiedPatch, unifiedDiffLines, type SplitDiffCell, type SplitDiffFile, type SplitDiffGap, type UnifiedDiffLine } from "@/lib/patch";
 import { applyPatchPreviewToFiles, applyPatchResultHasFailures, extractApplyPatchPaths, getApplyPatchInputText, parseApplyPatchInput } from "@/lib/apply-patch";
 import { isApplyPatchToolName, isEditToolName, isWriteToolName } from "@/lib/tool-names";
@@ -199,7 +202,7 @@ interface Props {
   toolResults?: Map<string, ToolResultMessage>;
   modelNames?: Record<string, string>;
   cwd?: string;
-  onOpenFile?: (filePath: string, page?: number) => void;
+  onOpenFile?: (filePath: string, page?: number, sourceSessionId?: string) => void;
   onOpenSubagent?: (sessionId: string, label: string) => void;
   entryId?: string;
   searchBlock?: AssistantContentBlock;
@@ -995,7 +998,7 @@ function AssistantMessageView({
   );
 }
 
-function BlockView({ block, searchTarget, toolResults, isStreaming, streamingDuration, toolCallDurations, cwd, onOpenFile, onOpenSubagent, sessionId, entryId, blockIndex }: { block: AssistantContentBlock; searchTarget?: boolean; toolResults?: Map<string, ToolResultMessage>; isStreaming?: boolean; streamingDuration?: number; toolCallDurations?: Map<string, number>; cwd?: string; onOpenFile?: (filePath: string, page?: number) => void; onOpenSubagent?: (sessionId: string, label: string) => void; sessionId?: string; entryId?: string; blockIndex: number }) {
+function BlockView({ block, searchTarget, toolResults, isStreaming, streamingDuration, toolCallDurations, cwd, onOpenFile, onOpenSubagent, sessionId, entryId, blockIndex }: { block: AssistantContentBlock; searchTarget?: boolean; toolResults?: Map<string, ToolResultMessage>; isStreaming?: boolean; streamingDuration?: number; toolCallDurations?: Map<string, number>; cwd?: string; onOpenFile?: (filePath: string, page?: number, sourceSessionId?: string) => void; onOpenSubagent?: (sessionId: string, label: string) => void; sessionId?: string; entryId?: string; blockIndex: number }) {
   if (block.type === "text") {
     return <div data-message-text data-search-target={searchTarget || undefined}><TextBlock block={block as TextContent} isStreaming={isStreaming} cwd={cwd} onOpenFile={onOpenFile} /></div>;
   }
@@ -1006,7 +1009,7 @@ function BlockView({ block, searchTarget, toolResults, isStreaming, streamingDur
     const tc = block as ToolCallContent;
     const result = toolResults?.get(tc.toolCallId);
     const duration = toolCallDurations?.get(tc.toolCallId);
-    return <ToolCallBlock block={tc} result={result} duration={duration} onOpenSubagent={onOpenSubagent} />;
+    return <ToolCallBlock block={tc} result={result} duration={duration} cwd={cwd} sessionId={sessionId} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} />;
   }
   return null;
 }
@@ -1178,7 +1181,7 @@ export function formatToolDuration(ms: number): string {
   return `${Math.floor(minutes / 60)}h ${minutes % 60}m ${remainder}s`;
 }
 
-function ToolCallBlock({ block, result, duration, onOpenSubagent }: { block: ToolCallContent; result?: ToolResultMessage; duration?: number; onOpenSubagent?: (sessionId: string, label: string) => void }) {
+function ToolCallBlock({ block, result, duration, cwd, sessionId, onOpenFile, onOpenSubagent }: { block: ToolCallContent; result?: ToolResultMessage; duration?: number; cwd?: string; sessionId?: string; onOpenFile?: (filePath: string, page?: number, sourceSessionId?: string) => void; onOpenSubagent?: (sessionId: string, label: string) => void }) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(() => isToolCallExpanded(block.toolCallId));
   const toggleExpanded = () => {
@@ -1219,6 +1222,7 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent }: { block: Too
     : null;
   const resultText = mcpLabel && joinedResultText !== null ? prettyMcpResultText(joinedResultText) : joinedResultText;
   const resultImages = getMessageImages(resultContent);
+  const resultImageFilePath = getReadResultImageFilePath(block, resultImages, cwd);
   const resultIsEmpty = resultText === null ? false : (resultText.trim() === "(no output)" || resultText.trim() === "");
   const isError = (result?.isError ?? false)
     || (isApplyPatchToolName(block.toolName) && applyPatchResultHasFailures(result?.details));
@@ -1333,7 +1337,15 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent }: { block: Too
       )}
 
       {/* ── Result images — always visible, independent of the collapsed details ── */}
-      {resultImages.length > 0 && <ResultImages images={resultImages} isError={isError} />}
+      {resultImages.length > 0 && (
+        <ResultImages
+          images={resultImages}
+          isError={isError}
+          filePath={resultImageFilePath}
+          sourceSessionId={sessionId}
+          onOpenFile={onOpenFile}
+        />
+      )}
 
       {/* ── Expanded: applied-patch split diff ── */}
       {expanded && patchFiles && (
@@ -1724,7 +1736,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function ResultImages({ images, isError }: { images: ImageContent[]; isError: boolean }) {
+function getReadResultImageFilePath(block: ToolCallContent, images: ImageContent[], cwd?: string): string | null {
+  if (block.toolName !== "read" || images.length === 0) return null;
+  const rawPath = block.input.path;
+  if (typeof rawPath !== "string") return null;
+  const filePath = resolveLocalFilePath(rawPath, cwd);
+  return filePath && isImagePath(filePath) ? filePath : null;
+}
+
+function ResultImages({ images, isError, filePath, sourceSessionId, onOpenFile }: { images: ImageContent[]; isError: boolean; filePath?: string | null; sourceSessionId?: string; onOpenFile?: (filePath: string, page?: number, sourceSessionId?: string) => void }) {
+  const { t } = useI18n();
   return (
     <div
       style={{
@@ -1743,7 +1764,10 @@ function ResultImages({ images, isError }: { images: ImageContent[]; isError: bo
           <ImagePreview
             key={`${src}-${index}`}
             src={src}
+            alt={filePath ? getFileName(filePath) : ""}
             style={{ maxWidth: "100%" }}
+            onOpenFile={filePath && onOpenFile ? () => onOpenFile(filePath, undefined, sourceSessionId) : undefined}
+            openFileLabel={filePath ? t("chat.openImageFile", { name: getFileName(filePath) }) : undefined}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img

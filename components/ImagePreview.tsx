@@ -9,12 +9,17 @@ interface ImagePreviewProps {
   children: React.ReactNode;
   className?: string;
   style?: React.CSSProperties;
+  /** Open a filesystem-backed image in the right file panel instead of the modal preview. */
+  onOpenFile?: () => void;
+  openFileLabel?: string;
 }
 
-export function ImagePreview({ src, alt = "", children, className, style }: ImagePreviewProps) {
+export function ImagePreview({ src, alt = "", children, className, style, onOpenFile, openFileLabel }: ImagePreviewProps) {
   const { t } = useI18n();
   const previewLabel = t("chat.previewImage");
-  const triggerLabel = alt.trim() ? `${previewLabel}: ${alt}` : previewLabel;
+  const triggerLabel = onOpenFile
+    ? (openFileLabel ?? previewLabel)
+    : (alt.trim() ? `${previewLabel}: ${alt}` : previewLabel);
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -57,14 +62,20 @@ export function ImagePreview({ src, alt = "", children, className, style }: Imag
           border: "none",
           background: "none",
           color: "inherit",
-          cursor: "zoom-in",
+          cursor: onOpenFile ? "pointer" : "zoom-in",
           ...style,
         }}
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          if (onOpenFile) {
+            onOpenFile();
+            return;
+          }
+          setOpen(true);
+        }}
         aria-label={triggerLabel}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        title={previewLabel}
+        aria-haspopup={onOpenFile ? undefined : "dialog"}
+        aria-expanded={onOpenFile ? undefined : open}
+        title={triggerLabel}
       >
         {children}
       </button>

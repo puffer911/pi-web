@@ -671,6 +671,33 @@ test("shows tool-result images while the tool details stay collapsed", () => {
   assert.doesNotMatch(html, /"tabId"/);
 });
 
+test("opens a read result image in the file panel when its source path is available", () => {
+  const block = {
+    type: "toolCall",
+    toolCallId: "call-read-image-1",
+    toolName: "read",
+    input: { path: "/tmp/pkt-go-1086-post-submit.png", offset: null, limit: null },
+  };
+  const result = {
+    role: "toolResult",
+    toolCallId: block.toolCallId,
+    content: [{ type: "image", data: "YWJj", mimeType: "image/png" }],
+  };
+  const html = renderMessage({
+    role: "assistant",
+    provider: "anthropic",
+    model: "claude-test",
+    content: [block],
+  }, {
+    toolResults: new Map([[block.toolCallId, result]]),
+    onOpenFile: () => {},
+  });
+
+  assert.match(html, /<button[^>]+aria-label="Open image file: pkt-go-1086-post-submit\.png"[^>]*>/);
+  assert.match(html, /<img[^>]+src="data:image\/png;base64,YWJj"/);
+  assert.doesNotMatch(html, /aria-haspopup="dialog"/);
+});
+
 test("uses the unanswered truncation notice for an empty length reply", () => {
   // A nearly full context can clamp the output so far that nothing, not even
   // thinking, comes back; the notice must not blame thinking alone.
