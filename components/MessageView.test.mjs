@@ -671,7 +671,7 @@ test("shows tool-result images while the tool details stay collapsed", () => {
   assert.doesNotMatch(html, /"tabId"/);
 });
 
-test("opens a read result image in the file panel when its source path is available", () => {
+test("renders a completed read result as a clickable source path", () => {
   const block = {
     type: "toolCall",
     toolCallId: "call-read-image-1",
@@ -694,8 +694,39 @@ test("opens a read result image in the file panel when its source path is availa
   });
 
   assert.match(html, /<button[^>]+aria-label="Open image file: pkt-go-1086-post-submit\.png"[^>]*>/);
-  assert.match(html, /<img[^>]+src="data:image\/png;base64,YWJj"/);
+  assert.match(html, /\/tmp\/pkt-go-1086-post-submit\.png/);
+  assert.doesNotMatch(html, /data:image\/png;base64,YWJj/);
   assert.doesNotMatch(html, /aria-haspopup="dialog"/);
+});
+
+test("keeps a read result image visible while its session is processing", () => {
+  const block = {
+    type: "toolCall",
+    toolCallId: "call-read-image-streaming",
+    toolName: "read",
+    input: { path: "/tmp/streaming.png" },
+  };
+  const result = {
+    role: "toolResult",
+    toolCallId: block.toolCallId,
+    content: [{ type: "image", data: "YWJj", mimeType: "image/png" }],
+  };
+  const renderOptions = {
+    toolResults: new Map([[block.toolCallId, result]]),
+    onOpenFile: () => {},
+  };
+  const message = {
+    role: "assistant",
+    provider: "anthropic",
+    model: "claude-test",
+    content: [block],
+  };
+
+  const processingHtml = renderMessage(message, { ...renderOptions, isProcessing: true });
+  assert.match(processingHtml, /<img[^>]+src="data:image\/png;base64,YWJj"/);
+
+  const streamingHtml = renderMessage(message, { ...renderOptions, isStreaming: true });
+  assert.match(streamingHtml, /<img[^>]+src="data:image\/png;base64,YWJj"/);
 });
 
 test("uses the unanswered truncation notice for an empty length reply", () => {

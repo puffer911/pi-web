@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback, useMemo, type CSSProperties, type MouseEvent } from "react";
-import { AppEventSource as EventSource, appFetch } from "@/lib/app-path";
+import { AppEventSource as EventSource, appFetch, appPath } from "@/lib/app-path";
 
 const fetch = appFetch;
 import type { SyntaxHighlighterProps } from "react-syntax-highlighter";
@@ -264,7 +264,7 @@ function getFileApiUrl(
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined) searchParams.set(key, String(value));
   }
-  return `/api/files/${encoded}?${searchParams.toString()}`;
+  return appPath(`/api/files/${encoded}?${searchParams.toString()}`);
 }
 
 function DownloadLink({ filePath, sourceSessionId }: { filePath: string; sourceSessionId?: string | null }) {

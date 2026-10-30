@@ -199,6 +199,8 @@ function loadThinkingContent(sessionId: string, entryId: string, blockIndex: num
 interface Props {
   message: AgentMessage;
   isStreaming?: boolean;
+  /** The selected session still has active work; keep transient tool media visible until it settles. */
+  isProcessing?: boolean;
   toolResults?: Map<string, ToolResultMessage>;
   modelNames?: Record<string, string>;
   cwd?: string;
@@ -293,12 +295,12 @@ function haveSameRelevantToolResults(
   return true;
 }
 
-export const MessageView = memo(function MessageView({ message, isStreaming, toolResults, modelNames, cwd, onOpenFile, onOpenSubagent, entryId, searchBlock, onFork, forking, onEditContent, onCancelEdit, isEditing, showTimestamp, prevTimestamp, sessionId, writtenFiles, turnDurationMs, onCompact, isCompacting, compactError }: Props) {
+export const MessageView = memo(function MessageView({ message, isStreaming, isProcessing, toolResults, modelNames, cwd, onOpenFile, onOpenSubagent, entryId, searchBlock, onFork, forking, onEditContent, onCancelEdit, isEditing, showTimestamp, prevTimestamp, sessionId, writtenFiles, turnDurationMs, onCompact, isCompacting, compactError }: Props) {
   if (message.role === "user") {
     return <UserMessageView message={message as UserMessage} cwd={cwd} onOpenFile={onOpenFile} entryId={entryId} onFork={onFork} forking={forking} onEditContent={onEditContent} onCancelEdit={onCancelEdit} isEditing={isEditing} />;
   }
   if (message.role === "assistant") {
-    return <AssistantMessageView message={message as AssistantMessage} isStreaming={isStreaming} toolResults={toolResults} modelNames={modelNames} cwd={cwd} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} showTimestamp={showTimestamp} prevTimestamp={prevTimestamp} sessionId={sessionId} entryId={entryId} searchBlock={searchBlock} writtenFiles={writtenFiles} turnDurationMs={turnDurationMs} onCompact={onCompact} isCompacting={isCompacting} compactError={compactError} />;
+    return <AssistantMessageView message={message as AssistantMessage} isStreaming={isStreaming} isProcessing={isProcessing} toolResults={toolResults} modelNames={modelNames} cwd={cwd} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} showTimestamp={showTimestamp} prevTimestamp={prevTimestamp} sessionId={sessionId} entryId={entryId} searchBlock={searchBlock} writtenFiles={writtenFiles} turnDurationMs={turnDurationMs} onCompact={onCompact} isCompacting={isCompacting} compactError={compactError} />;
   }
   if (message.role === "toolResult") {
     // Rendered inline under its toolCall — skip standalone rendering if paired
@@ -317,6 +319,7 @@ export const MessageView = memo(function MessageView({ message, isStreaming, too
 }, (prev, next) => {
   return prev.message === next.message
     && prev.isStreaming === next.isStreaming
+    && prev.isProcessing === next.isProcessing
     && haveSameRelevantToolResults(prev.message, prev.toolResults, next.toolResults)
     && prev.modelNames === next.modelNames
     && prev.cwd === next.cwd
@@ -652,6 +655,7 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
 function AssistantMessageView({
   message,
   isStreaming,
+  isProcessing,
   toolResults,
   modelNames,
   cwd,
@@ -670,6 +674,7 @@ function AssistantMessageView({
 }: {
   message: AssistantMessage;
   isStreaming?: boolean;
+  isProcessing?: boolean;
   toolResults?: Map<string, ToolResultMessage>;
   modelNames?: Record<string, string>;
   cwd?: string;
@@ -873,7 +878,7 @@ function AssistantMessageView({
         {/* Not keyed by the entry id: a message of this run gets one when the file is
             read again, and its blocks keep their state across that read (#1184). */}
         {blockItems.map(({ block, originalIndex }) => (
-          <BlockView key={originalIndex} block={block} searchTarget={block === searchBlock} toolResults={toolResults} isStreaming={isStreaming} streamingDuration={streamingDurations.get(originalIndex) ?? (block.type === "thinking" ? thinkingDurationFromFile : undefined)} toolCallDurations={toolCallDurations} cwd={cwd} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} sessionId={sessionId} entryId={entryId} blockIndex={originalIndex} />
+          <BlockView key={originalIndex} block={block} searchTarget={block === searchBlock} toolResults={toolResults} isStreaming={isStreaming} isProcessing={isProcessing} streamingDuration={streamingDurations.get(originalIndex) ?? (block.type === "thinking" ? thinkingDurationFromFile : undefined)} toolCallDurations={toolCallDurations} cwd={cwd} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} sessionId={sessionId} entryId={entryId} blockIndex={originalIndex} />
         ))}
       </div>
 
@@ -998,7 +1003,7 @@ function AssistantMessageView({
   );
 }
 
-function BlockView({ block, searchTarget, toolResults, isStreaming, streamingDuration, toolCallDurations, cwd, onOpenFile, onOpenSubagent, sessionId, entryId, blockIndex }: { block: AssistantContentBlock; searchTarget?: boolean; toolResults?: Map<string, ToolResultMessage>; isStreaming?: boolean; streamingDuration?: number; toolCallDurations?: Map<string, number>; cwd?: string; onOpenFile?: (filePath: string, page?: number, sourceSessionId?: string) => void; onOpenSubagent?: (sessionId: string, label: string) => void; sessionId?: string; entryId?: string; blockIndex: number }) {
+function BlockView({ block, searchTarget, toolResults, isStreaming, isProcessing, streamingDuration, toolCallDurations, cwd, onOpenFile, onOpenSubagent, sessionId, entryId, blockIndex }: { block: AssistantContentBlock; searchTarget?: boolean; toolResults?: Map<string, ToolResultMessage>; isStreaming?: boolean; isProcessing?: boolean; streamingDuration?: number; toolCallDurations?: Map<string, number>; cwd?: string; onOpenFile?: (filePath: string, page?: number, sourceSessionId?: string) => void; onOpenSubagent?: (sessionId: string, label: string) => void; sessionId?: string; entryId?: string; blockIndex: number }) {
   if (block.type === "text") {
     return <div data-message-text data-search-target={searchTarget || undefined}><TextBlock block={block as TextContent} isStreaming={isStreaming} cwd={cwd} onOpenFile={onOpenFile} /></div>;
   }
@@ -1009,7 +1014,7 @@ function BlockView({ block, searchTarget, toolResults, isStreaming, streamingDur
     const tc = block as ToolCallContent;
     const result = toolResults?.get(tc.toolCallId);
     const duration = toolCallDurations?.get(tc.toolCallId);
-    return <ToolCallBlock block={tc} result={result} duration={duration} cwd={cwd} sessionId={sessionId} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} />;
+    return <ToolCallBlock block={tc} result={result} duration={duration} isStreaming={isStreaming} isProcessing={isProcessing} cwd={cwd} sessionId={sessionId} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} />;
   }
   return null;
 }
@@ -1181,7 +1186,7 @@ export function formatToolDuration(ms: number): string {
   return `${Math.floor(minutes / 60)}h ${minutes % 60}m ${remainder}s`;
 }
 
-function ToolCallBlock({ block, result, duration, cwd, sessionId, onOpenFile, onOpenSubagent }: { block: ToolCallContent; result?: ToolResultMessage; duration?: number; cwd?: string; sessionId?: string; onOpenFile?: (filePath: string, page?: number, sourceSessionId?: string) => void; onOpenSubagent?: (sessionId: string, label: string) => void }) {
+function ToolCallBlock({ block, result, duration, isStreaming, isProcessing, cwd, sessionId, onOpenFile, onOpenSubagent }: { block: ToolCallContent; result?: ToolResultMessage; duration?: number; isStreaming?: boolean; isProcessing?: boolean; cwd?: string; sessionId?: string; onOpenFile?: (filePath: string, page?: number, sourceSessionId?: string) => void; onOpenSubagent?: (sessionId: string, label: string) => void }) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(() => isToolCallExpanded(block.toolCallId));
   const toggleExpanded = () => {
@@ -1344,6 +1349,8 @@ function ToolCallBlock({ block, result, duration, cwd, sessionId, onOpenFile, on
           filePath={resultImageFilePath}
           sourceSessionId={sessionId}
           onOpenFile={onOpenFile}
+          isStreaming={isStreaming}
+          isProcessing={isProcessing}
         />
       )}
 
@@ -1744,8 +1751,10 @@ function getReadResultImageFilePath(block: ToolCallContent, images: ImageContent
   return filePath && isImagePath(filePath) ? filePath : null;
 }
 
-function ResultImages({ images, isError, filePath, sourceSessionId, onOpenFile }: { images: ImageContent[]; isError: boolean; filePath?: string | null; sourceSessionId?: string; onOpenFile?: (filePath: string, page?: number, sourceSessionId?: string) => void }) {
+function ResultImages({ images, isError, filePath, sourceSessionId, onOpenFile, isStreaming, isProcessing }: { images: ImageContent[]; isError: boolean; filePath?: string | null; sourceSessionId?: string; onOpenFile?: (filePath: string, page?: number, sourceSessionId?: string) => void; isStreaming?: boolean; isProcessing?: boolean }) {
   const { t } = useI18n();
+  const openFileLabel = filePath ? t("chat.openImageFile", { name: getFileName(filePath) }) : undefined;
+  const showPathOnly = Boolean(filePath && onOpenFile && !isStreaming && !isProcessing);
   return (
     <div
       style={{
@@ -1757,7 +1766,38 @@ function ResultImages({ images, isError, filePath, sourceSessionId, onOpenFile }
         borderTop: `1px solid ${isError ? "rgba(248,113,113,0.3)" : "rgba(34,197,94,0.15)"}`,
       }}
     >
-      {images.map((image, index) => {
+      {showPathOnly ? (
+        <button
+          type="button"
+          onClick={() => {
+            if (filePath && onOpenFile) onOpenFile(filePath, undefined, sourceSessionId);
+          }}
+          aria-label={openFileLabel}
+          title={openFileLabel}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            maxWidth: "100%",
+            minWidth: 0,
+            padding: "4px 2px",
+            border: "none",
+            background: "none",
+            color: "var(--accent)",
+            cursor: "pointer",
+            font: "inherit",
+            textAlign: "left",
+            textDecoration: "underline",
+            textUnderlineOffset: 2,
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M10 13a5 5 0 0 0 7.07.07l2-2a5 5 0 0 0-7.07-7.07l-1.15 1.15" />
+            <path d="M14 11a5 5 0 0 0-7.07-.07l-2 2A5 5 0 0 0 7 20l1.15-1.15" />
+          </svg>
+          <span style={{ minWidth: 0, overflowWrap: "anywhere", wordBreak: "break-word" }}>{filePath}</span>
+        </button>
+      ) : images.map((image, index) => {
         const src = imageSource(image);
         if (!src) return null;
         return (
@@ -1767,7 +1807,7 @@ function ResultImages({ images, isError, filePath, sourceSessionId, onOpenFile }
             alt={filePath ? getFileName(filePath) : ""}
             style={{ maxWidth: "100%" }}
             onOpenFile={filePath && onOpenFile ? () => onOpenFile(filePath, undefined, sourceSessionId) : undefined}
-            openFileLabel={filePath ? t("chat.openImageFile", { name: getFileName(filePath) }) : undefined}
+            openFileLabel={openFileLabel}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img

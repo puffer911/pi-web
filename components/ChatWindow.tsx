@@ -1147,6 +1147,7 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
                   <MessageView
                     key={`${keyPrefix}-view-${messageKey}`}
                     message={msg}
+                    isProcessing={sessionBusy}
                     toolResults={toolResultsMap}
                     modelNames={modelNames}
                     cwd={messageCwd}
