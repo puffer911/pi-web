@@ -6,6 +6,7 @@ import { closeSync, type Dirent, fstatSync, openSync, readSync, statSync } from 
 import { readdir } from "fs/promises";
 import { isAbsolute, join, normalize as normalizePath, relative, resolve as resolvePath, sep } from "path";
 import type { AgentMessage, ImageContent, SessionEntry, SessionHeader, SessionInfo, SessionContext } from "./types";
+import { appPath } from "./app-path";
 import { normalizeToolCalls } from "./normalize";
 import { withoutMessageSignatures } from "./message-signatures";
 import { getThinkingPreview, isMessageGroupAnchor } from "./message-display";
@@ -892,7 +893,7 @@ function deferToolResultBase64Images(
       const source: ImageContent["source"] = {
         type: "url",
         media_type: image.mime,
-        url: `/api/sessions/${encodeURIComponent(sessionId)}/entries/${encodeURIComponent(entryId)}/tool-result-image?blockIndex=${blockIndex}`,
+        url: appPath(`/api/sessions/${encodeURIComponent(sessionId)}/entries/${encodeURIComponent(entryId)}/tool-result-image?blockIndex=${blockIndex}`),
       };
       return [{ type: "image", source } satisfies ImageContent];
     }
