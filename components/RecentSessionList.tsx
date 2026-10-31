@@ -10,6 +10,7 @@ import { sessionRowTitle } from "./SessionTree";
 import { MoreIcon, SpinnerIcon } from "./SidebarIcons";
 
 const RECENT_SESSION_LIMIT = 100;
+const NO_RUNNING_SESSIONS: ReadonlySet<string> = new Set();
 
 type RecentSessionStatus = "running" | "awaiting" | "unread" | "completed" | "idle";
 
@@ -38,14 +39,21 @@ function sessionTime(session: SessionInfo): number {
 export function recentSessionCandidates(
   sessions: readonly SessionInfo[],
   archivedSessionIds: ReadonlySet<string>,
+  runningSessionIds: ReadonlySet<string> = NO_RUNNING_SESSIONS,
 ): SessionInfo[] {
+  // A running session is active before its persisted `modified` timestamp catches up
+  // at agent end, so keep it ahead of idle rows while the run is in progress.
   return [...sessions]
     .filter((session) => (
       !session.transient
       && session.relation?.kind !== "subagent"
       && !archivedSessionIds.has(session.id)
     ))
-    .sort((a, b) => sessionTime(b) - sessionTime(a) || b.path.localeCompare(a.path));
+    .sort((a, b) => (
+      Number(runningSessionIds.has(b.id)) - Number(runningSessionIds.has(a.id))
+      || sessionTime(b) - sessionTime(a)
+      || b.path.localeCompare(a.path)
+    ));
 }
 
 /** Root ids from a Recent row through the oldest matching Recent session. */
@@ -53,8 +61,9 @@ export function recentSessionIdsAtOrOlder(
   sessions: readonly SessionInfo[],
   archivedSessionIds: ReadonlySet<string>,
   sessionId: string,
+  runningSessionIds: ReadonlySet<string> = NO_RUNNING_SESSIONS,
 ): string[] {
-  const candidates = recentSessionCandidates(sessions, archivedSessionIds);
+  const candidates = recentSessionCandidates(sessions, archivedSessionIds, runningSessionIds);
   const index = candidates.findIndex((session) => session.id === sessionId);
   return index < 0 ? [] : candidates.slice(index).map((session) => session.id);
 }
@@ -114,8 +123,8 @@ export function RecentSessionList({
   }, []);
 
   const recentSessions = useMemo(
-    () => recentSessionCandidates(sessions, archivedSessionIds).slice(0, RECENT_SESSION_LIMIT),
-    [archivedSessionIds, sessions],
+    () => recentSessionCandidates(sessions, archivedSessionIds, runningSessionIds).slice(0, RECENT_SESSION_LIMIT),
+    [archivedSessionIds, runningSessionIds, sessions],
   );
 
   return (

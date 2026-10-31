@@ -9,6 +9,7 @@ const { I18nProvider } = await jiti.import("@/hooks/useI18n");
 const {
   RecentSessionList,
   recentSessionAgentLabel,
+  recentSessionCandidates,
   recentSessionIdsAtOrOlder,
   recentSessionStatus,
 } = await jiti.import("./RecentSessionList.tsx");
@@ -68,6 +69,15 @@ test("sorts recent saved top-level sessions and omits archived, transient and su
   assert.deepEqual(
     recentSessionIdsAtOrOlder([older, subagent, transient, archived, newest], new Set([archived.id]), newest.id),
     [newest.id, older.id],
+  );
+});
+
+test("puts a running older session above newer idle sessions", () => {
+  const newer = session("newer", "/work/agent-coder", 1_000);
+  const runningOlder = session("running-older", "/work/agent-designer", 60_000);
+  assert.deepEqual(
+    recentSessionCandidates([newer, runningOlder], new Set(), new Set([runningOlder.id])).map((item) => item.id),
+    [runningOlder.id, newer.id],
   );
 });
 

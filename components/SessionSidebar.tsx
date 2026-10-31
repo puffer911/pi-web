@@ -2414,7 +2414,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     });
     if (!row.key.startsWith("session:recent:")) return items;
 
-    const ids = recentSessionIdsAtOrOlder(allSessions, archiveIndex.ids, row.family.root.id);
+    const ids = recentSessionIdsAtOrOlder(allSessions, archiveIndex.ids, row.family.root.id, runningSessionIds);
     return [
       ...items,
       { type: "separator" as const, id: "separator-recent-delete" },
