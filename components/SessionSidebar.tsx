@@ -2388,7 +2388,11 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   }, [filesShown, filesFocusRequest]);
 
   const sessionMenuItems = (row: SessionRow): SidebarMenuItem[] => {
-    const items: SidebarMenuItem[] = sessionMenuEntries(row.context, row.status).map((entry, index): SidebarMenuItem => {
+    const recentRow = row.key.startsWith("session:recent:");
+    const entries = recentRow
+      ? sessionMenuEntries(row.context, row.status).filter((entry) => entry.kind === "action" && (entry.id === "rename" || entry.id === "delete"))
+      : sessionMenuEntries(row.context, row.status);
+    const items: SidebarMenuItem[] = entries.map((entry, index): SidebarMenuItem => {
       if (entry.kind === "separator") return { type: "separator", id: `separator-${index}` };
       const label = t(SESSION_ACTION_LABEL_KEYS[entry.id]);
       return {
@@ -2412,7 +2416,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
         },
       };
     });
-    if (!row.key.startsWith("session:recent:")) return items;
+    if (!recentRow) return items;
 
     const ids = recentSessionIdsAtOrOlder(allSessions, archiveIndex.ids, row.family.root.id, runningSessionIds);
     return [
