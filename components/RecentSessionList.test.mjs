@@ -105,6 +105,19 @@ test("renders running, attention and idle status indicators", () => {
   assert.doesNotMatch(html, /recent-session-project/);
 });
 
+test("renders the rename field for a Recent session", () => {
+  const running = session("rename-me", "/work/agent-coder");
+  const html = render({
+    sessions: [running],
+    renamingSessionId: running.id,
+    onRenameCommit: noop,
+    onRenameCancel: noop,
+    onOpenMenu: noop,
+  });
+  assert.match(html, /class="recent-session-rename"/);
+  assert.doesNotMatch(html, /recent-session-more-action/);
+});
+
 test("renders a Recent row menu without showing the project path", () => {
   const running = session("running", "/work/agent-coder");
   const html = render({ sessions: [running], onOpenMenu: noop });

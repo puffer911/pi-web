@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react";
 import type { SessionInfo } from "@/lib/types";
 import { formatShortRelativeTime } from "@/lib/i18n/format";
 import { isPlainActivation, sessionDeepLink } from "@/lib/session-links";
@@ -26,6 +26,9 @@ interface Props {
   error: string | null;
   layout: "desktop" | "mobile";
   onSelectSession: (session: SessionInfo) => void;
+  renamingSessionId?: string | null;
+  onRenameCommit?: (session: SessionInfo, value: string) => void;
+  onRenameCancel?: () => void;
   onOpenMenu?: (session: SessionInfo, opener: HTMLElement) => void;
   menuSessionId?: string | null;
 }
@@ -109,6 +112,9 @@ export function RecentSessionList({
   error,
   layout,
   onSelectSession,
+  renamingSessionId,
+  onRenameCommit,
+  onRenameCancel,
   onOpenMenu,
   menuSessionId,
 }: Props) {
@@ -152,51 +158,116 @@ export function RecentSessionList({
           const details = t("sidebar.recentSessionDetails", { agent, time });
           const selected = session.id === selectedSessionId;
           const menuOpen = session.id === menuSessionId;
+          const renaming = session.id === renamingSessionId && onRenameCommit && onRenameCancel;
 
           return (
-            <div key={session.id} className={`recent-session-row${selected ? " is-selected" : ""}${menuOpen ? " is-menu-open" : ""}`}>
-              <a
-                className="recent-session-main"
-                href={sessionDeepLink(session.id)}
-                title={`${title}\n${details}`}
-                aria-current={selected ? "true" : undefined}
-                onClick={(event: ReactMouseEvent<HTMLAnchorElement>) => {
-                  if (!isPlainActivation(event)) return;
-                  event.preventDefault();
-                  onSelectSession(session);
-                }}
-              >
-                {status === "running" ? (
-                  <SpinnerIcon size={12} label={statusLabel} className="recent-session-status is-running" />
-                ) : (
-                  <span className={`recent-session-status is-${status}`} role="img" aria-label={statusLabel} title={statusLabel} />
-                )}
-                <span className="recent-session-title">{title}</span>
-                <span className="recent-session-details">
-                  <span className="recent-session-agent">{agent}</span>
-                  <span className="recent-session-time">{time}</span>
-                </span>
-              </a>
-              {onOpenMenu && (
-                <button
-                  type="button"
-                  className={`recent-session-more-action${menuOpen ? " is-active" : ""}`}
-                  aria-label={t("sidebar.moreActions")}
-                  title={t("sidebar.moreActions")}
-                  aria-haspopup="menu"
-                  aria-expanded={menuOpen}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onOpenMenu(session, event.currentTarget);
-                  }}
-                >
-                  <MoreIcon size={14} />
-                </button>
+            <div key={session.id} className={`recent-session-row${selected ? " is-selected" : ""}${menuOpen ? " is-menu-open" : ""}${renaming ? " is-renaming" : ""}`}>
+              {renaming ? (
+                <RecentRenameInput
+                  initialValue={title}
+                  label={t("sidebar.rename")}
+                  onCommit={(value) => onRenameCommit(session, value)}
+                  onCancel={onRenameCancel}
+                />
+              ) : (
+                <>
+                  <a
+                    className="recent-session-main"
+                    href={sessionDeepLink(session.id)}
+                    title={`${title}\n${details}`}
+                    aria-current={selected ? "true" : undefined}
+                    onClick={(event: ReactMouseEvent<HTMLAnchorElement>) => {
+                      if (!isPlainActivation(event)) return;
+                      event.preventDefault();
+                      onSelectSession(session);
+                    }}
+                  >
+                    {status === "running" ? (
+                      <SpinnerIcon size={12} label={statusLabel} className="recent-session-status is-running" />
+                    ) : (
+                      <span className={`recent-session-status is-${status}`} role="img" aria-label={statusLabel} title={statusLabel} />
+                    )}
+                    <span className="recent-session-title">{title}</span>
+                    <span className="recent-session-details">
+                      <span className="recent-session-agent">{agent}</span>
+                      <span className="recent-session-time">{time}</span>
+                    </span>
+                  </a>
+                  {onOpenMenu && (
+                    <button
+                      type="button"
+                      className={`recent-session-more-action${menuOpen ? " is-active" : ""}`}
+                      aria-label={t("sidebar.moreActions")}
+                      title={t("sidebar.moreActions")}
+                      aria-haspopup="menu"
+                      aria-expanded={menuOpen}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onOpenMenu(session, event.currentTarget);
+                      }}
+                    >
+                      <MoreIcon size={14} />
+                    </button>
+                  )}
+                </>
               )}
             </div>
           );
         })}
       </div>
     </div>
+  );
+}
+
+function RecentRenameInput({
+  initialValue,
+  label,
+  onCommit,
+  onCancel,
+}: {
+  initialValue: string;
+  label: string;
+  onCommit: (value: string) => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(initialValue);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const doneRef = useRef(false);
+
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!input) return;
+    input.focus();
+    input.select();
+  }, []);
+
+  const commit = (text: string) => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    onCommit(text);
+  };
+
+  return (
+    <input
+      ref={inputRef}
+      className="recent-session-rename"
+      value={value}
+      aria-label={label}
+      onChange={(event) => setValue(event.target.value)}
+      onBlur={(event) => commit(event.currentTarget.value)}
+      onKeyDown={(event: ReactKeyboardEvent<HTMLInputElement>) => {
+        if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+        if (event.key === "Enter") {
+          event.preventDefault();
+          commit(event.currentTarget.value);
+        } else if (event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          if (doneRef.current) return;
+          doneRef.current = true;
+          onCancel();
+        }
+      }}
+    />
   );
 }

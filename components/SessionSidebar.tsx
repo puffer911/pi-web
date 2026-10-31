@@ -3180,6 +3180,13 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
           error={error}
           layout={isMobile ? "mobile" : "desktop"}
           onSelectSession={handleSelectSessionFromList}
+          renamingSessionId={renamingRootId}
+          onRenameCommit={(session, value) => {
+            const family = familyByRootId.get(session.id);
+            if (family) void commitRename(family, value);
+            else setRenamingRootId(null);
+          }}
+          onRenameCancel={() => setRenamingRootId(null)}
           onOpenMenu={openRecentMenu}
           menuSessionId={activeRecentMenuSessionId}
         />

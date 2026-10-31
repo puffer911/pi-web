@@ -1181,6 +1181,25 @@ a.session-tree-main {
   background: var(--accent);
 }
 
+.recent-session-rename {
+  display: block;
+  width: calc(100% - 12px);
+  min-width: 0;
+  height: 24px;
+  margin: 8px 6px;
+  padding: 0 8px;
+  box-sizing: border-box;
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  outline: none;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 .recent-session-main {
   display: grid;
   width: 100%;
@@ -1327,6 +1346,10 @@ a.session-tree-main {
 .recent-session-list.is-mobile .recent-session-row,
 .recent-session-list.is-mobile .recent-session-main {
   min-height: 48px;
+}
+
+.recent-session-list.is-mobile .recent-session-rename {
+  height: 32px;
 }
 
 .recent-session-list.is-mobile .recent-session-more-action {
