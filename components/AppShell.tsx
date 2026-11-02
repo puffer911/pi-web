@@ -27,7 +27,7 @@ import { useFontPreferences } from "@/hooks/useFontPreferences";
 import { useI18n } from "@/hooks/useI18n";
 import { useIsMobile, useIsNarrowMobile } from "@/hooks/useIsMobile";
 import { useViewportHeight } from "@/hooks/useViewportHeight";
-import { useRunningFavicon } from "@/hooks/useRunningFavicon";
+import { useRunningFavicon, type RunningFaviconState } from "@/hooks/useRunningFavicon";
 import { useResizablePanel } from "@/hooks/useResizablePanel";
 import { useAudio } from "@/hooks/useAudio";
 import { copyText } from "@/lib/clipboard";
@@ -178,10 +178,36 @@ export function AppShell() {
   );
   const hasSubagentSessions = Boolean(activeSessionFamily?.subagents.length);
   const [runningSessionIds, setRunningSessionIds] = useState<Set<string>>(() => new Set());
-  useRunningFavicon(runningSessionIds.size > 0);
+  const previousRunningSessionIdsRef = useRef<Set<string>>(new Set());
+  const [completedFaviconSessionIds, setCompletedFaviconSessionIds] = useState<Set<string>>(() => new Set());
+  const [unreadFaviconSessionIds, setUnreadFaviconSessionIds] = useState<Set<string>>(() => new Set());
+  const runningFaviconState = useMemo<RunningFaviconState>(() => {
+    const hasCompletedWork = [...new Set([...completedFaviconSessionIds, ...unreadFaviconSessionIds])]
+      .some((id) => !runningSessionIds.has(id));
+    if (runningSessionIds.size === 0) return hasCompletedWork ? "complete" : "standby";
+    return hasCompletedWork ? "partial" : "running";
+  }, [completedFaviconSessionIds, runningSessionIds, unreadFaviconSessionIds]);
+  useRunningFavicon(runningFaviconState);
   const handleRunningSessionIdsChange = useCallback((ids: Set<string>) => {
-    setRunningSessionIds((previous) => {
-      if (previous.size === ids.size && [...ids].every((id) => previous.has(id))) return previous;
+    const previous = previousRunningSessionIdsRef.current;
+    const completedNow = [...previous].filter((id) => !ids.has(id));
+    previousRunningSessionIdsRef.current = new Set(ids);
+    setRunningSessionIds((current) => {
+      if (current.size === ids.size && [...ids].every((id) => current.has(id))) return current;
+      return ids;
+    });
+    if (completedNow.length === 0 && ids.size === 0) return;
+    setCompletedFaviconSessionIds((current) => {
+      const next = new Set(current);
+      ids.forEach((id) => next.delete(id));
+      completedNow.forEach((id) => next.add(id));
+      if (next.size === current.size && [...next].every((id) => current.has(id))) return current;
+      return next;
+    });
+  }, []);
+  const handleUnreadSessionIdsChange = useCallback((ids: Set<string>) => {
+    setUnreadFaviconSessionIds((current) => {
+      if (current.size === ids.size && [...ids].every((id) => current.has(id))) return current;
       return ids;
     });
   }, []);
@@ -850,6 +876,12 @@ export function AppShell() {
   }, [activeCwd, changeFileWorkspace, invalidateWorkspaceRestore, newSessionCwd, router, selectedSession, restoreWorkspaceContext]);
 
   const handleSelectSession = useCallback((session: SessionInfo, isRestore = false, entryId?: string, blockIndex?: number, options?: SelectSessionOptions) => {
+    setCompletedFaviconSessionIds((current) => {
+      if (!current.has(session.id)) return current;
+      const next = new Set(current);
+      next.delete(session.id);
+      return next;
+    });
     setSearchTarget(entryId ? { sessionId: session.id, entryId, blockIndex } : null);
     invalidateWorkspaceRestore();
     const activeDraftKey = activeNewSessionDraftKeyRef.current;
@@ -1461,6 +1493,7 @@ export function AppShell() {
         onAtMentions={handleAtMentions}
         onBackgroundTaskDone={handleBackgroundTaskDone}
         onRunningSessionIdsChange={handleRunningSessionIdsChange}
+        onUnreadSessionIdsChange={handleUnreadSessionIdsChange}
         onSessionsChange={handleSessionsChange}
       />
       <div style={{ padding: "8px", flexShrink: 0, display: "flex", justifyContent: "space-between", gap: 4 }}>

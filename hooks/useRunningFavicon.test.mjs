@@ -11,18 +11,27 @@ const { useRunningFavicon } = await jiti.import("./useRunningFavicon.ts");
 function installDom() {
   const links = [];
   const calls = [];
+  const fillStyles = [];
+  let fillStyle = "";
   const context = {
-    canvas: { toDataURL: () => "data:image/png;base64,static-dot" },
+    canvas: { toDataURL: () => "data:image/png;base64,status-dot" },
     clearRect: (...args) => calls.push(["clearRect", ...args]),
-    drawImage: (...args) => calls.push(["drawImage", ...args]),
     beginPath: () => calls.push(["beginPath"]),
+    moveTo: (...args) => calls.push(["moveTo", ...args]),
     arc: (...args) => calls.push(["arc", ...args]),
+    closePath: () => calls.push(["closePath"]),
     fill: () => calls.push(["fill"]),
     stroke: () => calls.push(["stroke"]),
-    fillStyle: "",
     lineWidth: 0,
     strokeStyle: "",
   };
+  Object.defineProperty(context, "fillStyle", {
+    get: () => fillStyle,
+    set: (value) => {
+      fillStyle = value;
+      fillStyles.push(value);
+    },
+  });
   const makeLink = () => {
     const attributes = new Map();
     const link = {
@@ -46,31 +55,46 @@ function installDom() {
     },
     head: { append(link) { links.push(link); } },
   };
-  globalThis.Image = class {
-    set src(value) {
-      this._src = value;
-      this.onload?.();
-    }
-  };
-  return { links, calls, context };
+  return { links, calls, fillStyles, context, makeLink };
 }
 
-test("uses one static high-contrast amber dot for a running favicon", () => {
+test("uses standalone colored dots for running, partial, and complete favicon states", () => {
   const previousDocument = globalThis.document;
-  const previousImage = globalThis.Image;
-  const { links, calls, context } = installDom();
+  const { links, calls, fillStyles, context } = installDom();
   try {
-    const view = renderHook(() => useRunningFavicon(true));
+    const view = renderHook((state) => useRunningFavicon(state), "running");
     assert.equal(links.length, 1);
-    assert.equal(links[0].getAttribute("href"), "data:image/png;base64,static-dot");
-    assert.deepEqual(calls.find(([name]) => name === "arc"), ["arc", 24, 7, 5.5, 0, Math.PI * 2]);
-    assert.equal(context.fillStyle, "#f2b84b");
+    assert.equal(links[0].getAttribute("href"), "data:image/png;base64,status-dot");
+    assert.deepEqual(calls.find(([name]) => name === "arc"), ["arc", 16, 16, 10.5, 0, Math.PI * 2]);
+    assert.equal(fillStyles.at(-1), "#f2b84b");
     assert.equal(context.strokeStyle, "#173f45");
-    assert.equal(calls.filter(([name]) => name === "arc").length, 1);
-    view.unmount();
+    assert.doesNotMatch(calls.map(([name]) => name).join(" "), /drawImage/);
+
+    view.rerender("partial");
+    assert.deepEqual(fillStyles.slice(-2), ["#f2b84b", "#55d17a"]);
+    view.rerender("complete");
+    assert.equal(fillStyles.at(-1), "#55d17a");
+    view.rerender("standby");
     assert.equal(links.length, 0);
   } finally {
     globalThis.document = previousDocument;
-    globalThis.Image = previousImage;
+  }
+});
+
+test("restores the original favicon when the status clears", () => {
+  const previousDocument = globalThis.document;
+  const { links, makeLink } = installDom();
+  const original = makeLink();
+  original.setAttribute("href", "/icons/icon-192.png");
+  links.push(original);
+  try {
+    const view = renderHook((state) => useRunningFavicon(state), "complete");
+    assert.equal(links.length, 1);
+    assert.equal(original.getAttribute("href"), "data:image/png;base64,status-dot");
+    view.rerender("standby");
+    assert.equal(original.getAttribute("href"), "/icons/icon-192.png");
+    assert.equal(links.length, 1);
+  } finally {
+    globalThis.document = previousDocument;
   }
 });

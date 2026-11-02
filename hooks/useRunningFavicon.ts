@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect } from "react";
-import { appPath } from "@/lib/app-path";
+
+export type RunningFaviconState = "standby" | "running" | "partial" | "complete";
 
 const FAVICON_SIZE = 32;
-const RUNNING_DOT_X = 24;
-const RUNNING_DOT_Y = 7;
-const RUNNING_DOT_RADIUS = 5.5;
+const STATUS_DOT_X = FAVICON_SIZE / 2;
+const STATUS_DOT_Y = FAVICON_SIZE / 2;
+const STATUS_DOT_RADIUS = 10.5;
 const RUNNING_DOT_COLOR = "#f2b84b";
-const RUNNING_DOT_OUTLINE = "#173f45";
+const COMPLETE_DOT_COLOR = "#55d17a";
+const STATUS_DOT_OUTLINE = "#173f45";
 
 function getFaviconLinks(): { links: HTMLLinkElement[]; created: boolean } {
   const existing = [...document.querySelectorAll<HTMLLinkElement>('link[rel~="icon"]')];
@@ -20,30 +22,46 @@ function getFaviconLinks(): { links: HTMLLinkElement[]; created: boolean } {
   return { links: [link], created: true };
 }
 
-function drawRunningFavicon(
+function drawDot(
   context: CanvasRenderingContext2D,
-  image: HTMLImageElement,
+  color: string,
+  startAngle = 0,
+  endAngle = Math.PI * 2,
+): void {
+  context.beginPath();
+  context.moveTo(STATUS_DOT_X, STATUS_DOT_Y);
+  context.arc(STATUS_DOT_X, STATUS_DOT_Y, STATUS_DOT_RADIUS, startAngle, endAngle);
+  context.closePath();
+  context.fillStyle = color;
+  context.fill();
+}
+
+function drawStatusFavicon(
+  context: CanvasRenderingContext2D,
+  state: Exclude<RunningFaviconState, "standby">,
 ): string {
   context.clearRect(0, 0, FAVICON_SIZE, FAVICON_SIZE);
-  context.drawImage(image, 0, 0, FAVICON_SIZE, FAVICON_SIZE);
+  if (state === "partial") {
+    drawDot(context, RUNNING_DOT_COLOR, Math.PI / 2, Math.PI * 1.5);
+    drawDot(context, COMPLETE_DOT_COLOR, -Math.PI / 2, Math.PI / 2);
+  } else {
+    drawDot(context, state === "complete" ? COMPLETE_DOT_COLOR : RUNNING_DOT_COLOR);
+  }
   context.beginPath();
-  context.arc(RUNNING_DOT_X, RUNNING_DOT_Y, RUNNING_DOT_RADIUS, 0, Math.PI * 2);
-  context.fillStyle = RUNNING_DOT_COLOR;
-  context.fill();
+  context.arc(STATUS_DOT_X, STATUS_DOT_Y, STATUS_DOT_RADIUS, 0, Math.PI * 2);
   context.lineWidth = 1.5;
-  context.strokeStyle = RUNNING_DOT_OUTLINE;
+  context.strokeStyle = STATUS_DOT_OUTLINE;
   context.stroke();
   return context.canvas.toDataURL("image/png");
 }
 
-/** Adds a static, high-contrast amber status dot to the browser tab while any session runs. */
-export function useRunningFavicon(running: boolean): void {
+/** Shows a standalone favicon status dot while work is running or awaiting attention. */
+export function useRunningFavicon(state: RunningFaviconState): void {
   useEffect(() => {
-    if (!running) return;
+    if (state === "standby") return;
 
     const { links, created } = getFaviconLinks();
     const originalHrefs = links.map((link) => link.getAttribute("href"));
-    let cancelled = false;
     const canvas = document.createElement("canvas");
     canvas.width = FAVICON_SIZE;
     canvas.height = FAVICON_SIZE;
@@ -60,17 +78,9 @@ export function useRunningFavicon(running: boolean): void {
 
     if (!context) return restore;
 
-    const image = new Image();
-    image.onload = () => {
-      if (cancelled) return;
-      const favicon = drawRunningFavicon(context, image);
-      links.forEach((link) => link.setAttribute("href", favicon));
-    };
-    image.src = appPath("/icons/icon-192.png");
+    const favicon = drawStatusFavicon(context, state);
+    links.forEach((link) => link.setAttribute("href", favicon));
 
-    return () => {
-      cancelled = true;
-      restore();
-    };
-  }, [running]);
+    return restore;
+  }, [state]);
 }
