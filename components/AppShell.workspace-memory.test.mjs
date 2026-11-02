@@ -140,6 +140,7 @@ test("New restores the draft after session navigation and workspace auto-restore
         selectedSession: null,
         sessionCatalog: [],
         sessionKey: 0,
+        completedFaviconSessionIds: new Set(),
       });
       context.invalidateWorkspaceRestore = () => context.workspaceRestoreTokenRef.current++;
       for (const [setter] of callbacks.matchAll(/\bset[A-Z]\w*(?=\()/g)) {
