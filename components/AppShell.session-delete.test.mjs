@@ -21,6 +21,8 @@ function runHandleSessionDeleted(capturedSelectedSession, active) {
   const state = {
     setSelectedSession: [],
     setNewSessionCwd: [],
+    completedFaviconSessionIds: new Set(["gone-session"]),
+    unreadFaviconSessionIds: new Set(["gone-session"]),
     newSessionDraftId: null,
     sessionKey: 0,
     routerReplaced: null,
@@ -40,6 +42,12 @@ function runHandleSessionDeleted(capturedSelectedSession, active) {
     setNewSessionDraftId: (id) => { state.newSessionDraftId = id; },
     setSelectedSession: (value) => { state.setSelectedSession.push(value); },
     setNewSessionCwd: (value) => { state.setNewSessionCwd.push(value); },
+    setCompletedFaviconSessionIds: (update) => {
+      state.completedFaviconSessionIds = update(state.completedFaviconSessionIds);
+    },
+    setUnreadFaviconSessionIds: (update) => {
+      state.unreadFaviconSessionIds = update(state.unreadFaviconSessionIds);
+    },
     setSessionKey: (fn) => { state.sessionKey = fn(state.sessionKey); },
     setBranchTree() {},
     setBranchActiveLeafId() {},
@@ -61,6 +69,8 @@ test("a delete completing after the user navigated away keeps the new chat", () 
   const navigatedTo = { id: "next-session", cwd: "/project-b", projectKey: "/project-b" };
   const state = runHandleSessionDeleted(deleting, navigatedTo);
   assert.equal(state.refreshBumped, true, "sidebar list still refreshes");
+  assert.equal(state.completedFaviconSessionIds.size, 0);
+  assert.equal(state.unreadFaviconSessionIds.size, 0);
   assert.deepEqual(state.setSelectedSession, [], "selection is untouched");
   assert.deepEqual(state.setNewSessionCwd, [], "no empty composer");
   assert.equal(state.newSessionDraftId, null);
@@ -72,6 +82,8 @@ test("a delete completing while the user is still on it falls back to the empty 
   const session = { id: "gone-session", cwd: "/project-a", projectKey: "/project-a" };
   const state = runHandleSessionDeleted(session, session);
   assert.equal(state.refreshBumped, true);
+  assert.equal(state.completedFaviconSessionIds.size, 0);
+  assert.equal(state.unreadFaviconSessionIds.size, 0);
   assert.deepEqual(state.setSelectedSession, [null]);
   assert.deepEqual(state.setNewSessionCwd, ["/project-a"]);
   assert.ok(state.newSessionDraftId);
