@@ -181,12 +181,16 @@ export function AppShell() {
   const previousRunningSessionIdsRef = useRef<Set<string>>(new Set());
   const [completedFaviconSessionIds, setCompletedFaviconSessionIds] = useState<Set<string>>(() => new Set());
   const [unreadFaviconSessionIds, setUnreadFaviconSessionIds] = useState<Set<string>>(() => new Set());
+  const knownFaviconSessionIds = useMemo(
+    () => new Set(sessionCatalog.map((session) => session.id)),
+    [sessionCatalog],
+  );
   const runningFaviconState = useMemo<RunningFaviconState>(() => {
     const hasCompletedWork = [...new Set([...completedFaviconSessionIds, ...unreadFaviconSessionIds])]
-      .some((id) => !runningSessionIds.has(id));
+      .some((id) => knownFaviconSessionIds.has(id) && !runningSessionIds.has(id));
     if (runningSessionIds.size === 0) return hasCompletedWork ? "complete" : "standby";
     return hasCompletedWork ? "partial" : "running";
-  }, [completedFaviconSessionIds, runningSessionIds, unreadFaviconSessionIds]);
+  }, [completedFaviconSessionIds, knownFaviconSessionIds, runningSessionIds, unreadFaviconSessionIds]);
   useRunningFavicon(runningFaviconState);
   const handleRunningSessionIdsChange = useCallback((ids: Set<string>) => {
     const previous = previousRunningSessionIdsRef.current;
@@ -1190,6 +1194,18 @@ export function AppShell() {
   }, [initialLinkedSessionId]);
 
   const handleSessionDeleted = useCallback((sessionId: string) => {
+    setCompletedFaviconSessionIds((current) => {
+      if (!current.has(sessionId)) return current;
+      const next = new Set(current);
+      next.delete(sessionId);
+      return next;
+    });
+    setUnreadFaviconSessionIds((current) => {
+      if (!current.has(sessionId)) return current;
+      const next = new Set(current);
+      next.delete(sessionId);
+      return next;
+    });
     invalidateWorkspaceRestore();
     setRefreshKey((k) => k + 1);
     // The DELETE can outlive a session switch: this callback's captured

@@ -8,8 +8,9 @@ const FAVICON_SIZE = 32;
 const STATUS_DOT_X = FAVICON_SIZE / 2;
 const STATUS_DOT_Y = FAVICON_SIZE / 2;
 const STATUS_DOT_RADIUS = 10.5;
-const RUNNING_DOT_COLOR = "#f2b84b";
-const COMPLETE_DOT_COLOR = "#55d17a";
+// Keep the favicon colors aligned with --status-running and --status-attention.
+const RUNNING_DOT_COLOR = "#16a34a";
+const COMPLETE_DOT_COLOR = "#d97706";
 const STATUS_DOT_OUTLINE = "#173f45";
 
 function getFaviconLinks(): { links: HTMLLinkElement[]; created: boolean } {

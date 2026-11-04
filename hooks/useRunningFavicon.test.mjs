@@ -66,14 +66,14 @@ test("uses standalone colored dots for running, partial, and complete favicon st
     assert.equal(links.length, 1);
     assert.equal(links[0].getAttribute("href"), "data:image/png;base64,status-dot");
     assert.deepEqual(calls.find(([name]) => name === "arc"), ["arc", 16, 16, 10.5, 0, Math.PI * 2]);
-    assert.equal(fillStyles.at(-1), "#f2b84b");
+    assert.equal(fillStyles.at(-1), "#16a34a");
     assert.equal(context.strokeStyle, "#173f45");
     assert.doesNotMatch(calls.map(([name]) => name).join(" "), /drawImage/);
 
     view.rerender("partial");
-    assert.deepEqual(fillStyles.slice(-2), ["#f2b84b", "#55d17a"]);
+    assert.deepEqual(fillStyles.slice(-2), ["#16a34a", "#d97706"]);
     view.rerender("complete");
-    assert.equal(fillStyles.at(-1), "#55d17a");
+    assert.equal(fillStyles.at(-1), "#d97706");
     view.rerender("standby");
     assert.equal(links.length, 0);
   } finally {
