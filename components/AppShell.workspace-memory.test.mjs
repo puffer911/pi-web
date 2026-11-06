@@ -141,6 +141,7 @@ test("New restores the draft after session navigation and workspace auto-restore
         sessionCatalog: [],
         sessionKey: 0,
         completedFaviconSessionIds: new Set(),
+        handleSessionRead() {},
       });
       context.invalidateWorkspaceRestore = () => context.workspaceRestoreTokenRef.current++;
       for (const [setter] of callbacks.matchAll(/\bset[A-Z]\w*(?=\()/g)) {
@@ -248,6 +249,7 @@ test("New in another project adopts it up front and parks the composer's draft",
     selectedSession: null,
     sessionCatalog: [],
     sessionKey: 0,
+    handleSessionRead() {},
   });
   context.invalidateWorkspaceRestore = () => context.workspaceRestoreTokenRef.current++;
   for (const [setter] of callbacks.matchAll(/\bset[A-Z]\w*(?=\()/g)) {
@@ -337,6 +339,7 @@ test("the composer's bar moves the fresh composer's draft and model picks instea
     selectedSession: null,
     sessionCatalog: [],
     sessionKey: 0,
+    handleSessionRead() {},
   });
   context.invalidateWorkspaceRestore = () => context.workspaceRestoreTokenRef.current++;
   for (const [setter] of callbacks.matchAll(/\bset[A-Z]\w*(?=\()/g)) {
@@ -508,6 +511,7 @@ test("a new session puts the caret in the fresh composer on desktop only (#1313)
     selectedSession: null,
     sessionCatalog: [],
     sessionKey: 0,
+    handleSessionRead() {},
   });
   context.invalidateWorkspaceRestore = () => context.workspaceRestoreTokenRef.current++;
   for (const [setter] of callbacks.matchAll(/\bset[A-Z]\w*(?=\()/g)) {

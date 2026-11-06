@@ -237,6 +237,8 @@ interface Props {
   onBackgroundTaskDone?: () => void;
   onRunningSessionIdsChange?: (ids: Set<string>) => void;
   onUnreadSessionIdsChange?: (ids: Set<string>) => void;
+  /** Fired whenever a session's completion/unread attention is consumed. */
+  onSessionRead?: (ids: readonly string[]) => void;
   onSessionsChange?: (sessions: SessionInfo[]) => void;
 }
 
@@ -422,6 +424,14 @@ export function sameIdsOr(previous: Set<string>, ids: readonly string[]): Set<st
   return previous;
 }
 
+/** Remove read session markers without changing the Set identity when nothing changed. */
+export function withoutSessionIds(previous: Set<string>, ids: readonly string[]): Set<string> {
+  if (ids.length === 0 || previous.size === 0) return previous;
+  const removed = new Set(ids);
+  const next = new Set([...previous].filter((id) => !removed.has(id)));
+  return next.size === previous.size ? previous : next;
+}
+
 /** Temporary id for a session that does not exist yet: pi is spawned lazily
  *  when the user sends the first message, so no backend call is needed. */
 function createTempSessionId(): string {
@@ -508,7 +518,7 @@ function buttonAnchor(element: HTMLElement, align: "start" | "end"): SidebarMenu
   return { kind: "rect", rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }, align };
 }
 
-export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSession, controlRef, onNewSessionContextChange, initialSessionId, initialSessionLinked, skipInitialProjectSelection, onInitialRestoreDone, refreshKey, onSessionDeleted, selectedCwd: selectedCwdProp, onCwdChange, onOpenFile, onOpenTerminal, explorerRefreshKey, onExplorerRefresh, onAtMention, onAtMentions, onBackgroundTaskDone, onRunningSessionIdsChange, onUnreadSessionIdsChange, onSessionsChange }: Props) {
+export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSession, controlRef, onNewSessionContextChange, initialSessionId, initialSessionLinked, skipInitialProjectSelection, onInitialRestoreDone, refreshKey, onSessionDeleted, selectedCwd: selectedCwdProp, onCwdChange, onOpenFile, onOpenTerminal, explorerRefreshKey, onExplorerRefresh, onAtMention, onAtMentions, onBackgroundTaskDone, onRunningSessionIdsChange, onUnreadSessionIdsChange, onSessionRead, onSessionsChange }: Props) {
   const { t } = useI18n();
   const isMobile = useIsMobile();
   const [allSessions, setAllSessions] = useState<SessionInfo[]>([]);
@@ -554,9 +564,11 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   const [runningSessionIds, setRunningSessionIds] = useState<Set<string>>(() => new Set());
   const [awaitingInputSessionIds, setAwaitingInputSessionIds] = useState<Set<string>>(() => new Set());
   const [unreadSessionIds, setUnreadSessionIds] = useState<Set<string>>(() => loadUnreadSessionIds());
+  const unreadSessionIdsRef = useRef(unreadSessionIds);
+  unreadSessionIdsRef.current = unreadSessionIds;
   // A completion marker is intentionally page-local: it highlights the run
-  // that just ended, including the selected session, without persisting a
-  // selected session as unread across reloads.
+  // that just ended until the session is read, without persisting a selected
+  // session as unread across reloads.
   const [recentlyCompletedSessionIds, setRecentlyCompletedSessionIds] = useState<Set<string>>(() => new Set());
   const previousRunningSessionIdsRef = useRef<Set<string>>(new Set());
   const previousSelectedSessionIdRef = useRef<string | null>(selectedSessionId);
@@ -568,6 +580,18 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   const detailsHydrationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const explorerRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileExplorerRef = useRef<FileExplorerHandle>(null);
+
+  // Opening a session consumes both kinds of page-local attention: the
+  // persisted unread marker and the completion marker that is intentionally
+  // shown even for the selected row. Keep this on the click path as well as
+  // the selected-session effect so clicking the already-open row is enough.
+  const markSessionIdsRead = useCallback((ids: readonly string[]) => {
+    if (ids.length === 0) return;
+    const uniqueIds = [...new Set(ids)];
+    setUnreadSessionIds((previous) => withoutSessionIds(previous, uniqueIds));
+    setRecentlyCompletedSessionIds((previous) => withoutSessionIds(previous, uniqueIds));
+    onSessionRead?.(uniqueIds);
+  }, [onSessionRead]);
 
   // The files below the sessions (desktop, by default: both in view, a
   // separator between them, the files section foldable to its header row),
@@ -912,11 +936,14 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
       if (event.key !== null && event.key !== UNREAD_SESSIONS_STORAGE_KEY) return;
-      setUnreadSessionIds((prev) => sameIdsOr(prev, [...parseUnreadSessionIds(event.newValue)]));
+      const nextIds = parseUnreadSessionIds(event.newValue);
+      const readIds = [...unreadSessionIdsRef.current].filter((id) => !nextIds.has(id));
+      if (readIds.length > 0) onSessionRead?.(readIds);
+      setUnreadSessionIds((prev) => sameIdsOr(prev, [...nextIds]));
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
-  }, []);
+  }, [onSessionRead]);
 
   useEffect(() => {
     let stopped = false;
@@ -1063,16 +1090,11 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
 
   useEffect(() => {
     if (!selectedSessionId) return;
-    setUnreadSessionIds((prev) => {
-      if (!prev.has(selectedSessionId)) return prev;
-      const next = new Set(prev);
-      next.delete(selectedSessionId);
-      return next;
-    });
-  }, [selectedSessionId]);
+    markSessionIdsRead([selectedSessionId]);
+  }, [markSessionIdsRead, selectedSessionId]);
 
-  // Keep the just-finished marker visible while the user remains on that
-  // session; selecting another session means the completion has been seen.
+  // Selecting another session also consumes the previous completion marker;
+  // the selected-session effect above consumes the newly selected one.
   useEffect(() => {
     const previous = previousSelectedSessionIdRef.current;
     previousSelectedSessionIdRef.current = selectedSessionId;
@@ -1350,10 +1372,11 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   // works when the prop value won't change — e.g. re-clicking the already
   // open session after manually switching worktrees.
   const handleSelectSessionFromList = useCallback((s: SessionInfo, entryId?: string, blockIndex?: number, options?: SelectSessionOptions) => {
+    markSessionIdsRead([s.id]);
     setAllSessions((current) => current.some((session) => session.id === s.id) ? current : [s, ...current]);
     if (s.cwd) setSelectedCwd(s.cwd);
     onSelectSession(s, false, entryId, blockIndex, options);
-  }, [onSelectSession]);
+  }, [markSessionIdsRead, onSelectSession]);
 
   // Every "new session" goes through here. The cwd moves first, on the click
   // path like a session pick, and the shell gets the target's project so it
@@ -1769,23 +1792,17 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
 
   const markFamilyRead = useCallback((family: SessionFamily, read: boolean) => {
     const memberIds = familyIds(family);
+    if (read) {
+      markSessionIdsRead(memberIds);
+      return;
+    }
     setUnreadSessionIds((prev) => {
       const next = new Set(prev);
-      if (read) {
-        for (const id of memberIds) next.delete(id);
-      } else {
-        // Subagents never carry the marker (loadSessions prunes them).
-        next.add(family.root.id);
-      }
+      // Subagents never carry the marker (loadSessions prunes them).
+      next.add(family.root.id);
       return next;
     });
-    setRecentlyCompletedSessionIds((prev) => {
-      if (!memberIds.some((id) => prev.has(id))) return prev;
-      const next = new Set(prev);
-      for (const id of memberIds) next.delete(id);
-      return next;
-    });
-  }, []);
+  }, [markSessionIdsRead]);
 
   // Unread markers coming back (Undo, a refused archive), except on the
   // session that is open by now: it has been read.

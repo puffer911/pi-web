@@ -182,7 +182,11 @@ export function AppShell() {
   const [completedFaviconSessionIds, setCompletedFaviconSessionIds] = useState<Set<string>>(() => new Set());
   const [unreadFaviconSessionIds, setUnreadFaviconSessionIds] = useState<Set<string>>(() => new Set());
   const knownFaviconSessionIds = useMemo(
-    () => new Set(sessionCatalog.map((session) => session.id)),
+    () => new Set(
+      sessionCatalog
+        .filter((session) => session.relation?.kind !== "subagent")
+        .map((session) => session.id),
+    ),
     [sessionCatalog],
   );
   const runningFaviconState = useMemo<RunningFaviconState>(() => {
@@ -208,6 +212,16 @@ export function AppShell() {
       if (next.size === current.size && [...next].every((id) => current.has(id))) return current;
       return next;
     });
+  }, []);
+  const handleSessionRead = useCallback((ids: readonly string[]) => {
+    const readIds = new Set(ids);
+    if (readIds.size === 0) return;
+    const removeReadIds = (current: Set<string>) => {
+      const next = new Set([...current].filter((id) => !readIds.has(id)));
+      return next.size === current.size ? current : next;
+    };
+    setCompletedFaviconSessionIds(removeReadIds);
+    setUnreadFaviconSessionIds(removeReadIds);
   }, []);
   const handleUnreadSessionIdsChange = useCallback((ids: Set<string>) => {
     setUnreadFaviconSessionIds((current) => {
@@ -880,12 +894,7 @@ export function AppShell() {
   }, [activeCwd, changeFileWorkspace, invalidateWorkspaceRestore, newSessionCwd, router, selectedSession, restoreWorkspaceContext]);
 
   const handleSelectSession = useCallback((session: SessionInfo, isRestore = false, entryId?: string, blockIndex?: number, options?: SelectSessionOptions) => {
-    setCompletedFaviconSessionIds((current) => {
-      if (!current.has(session.id)) return current;
-      const next = new Set(current);
-      next.delete(session.id);
-      return next;
-    });
+    handleSessionRead([session.id]);
     setSearchTarget(entryId ? { sessionId: session.id, entryId, blockIndex } : null);
     invalidateWorkspaceRestore();
     const activeDraftKey = activeNewSessionDraftKeyRef.current;
@@ -939,7 +948,7 @@ export function AppShell() {
     if (!isRestore || new URLSearchParams(window.location.search).get("session") !== session.id) {
       router.replace(`?session=${encodeURIComponent(session.id)}`, { scroll: false });
     }
-  }, [activeCwd, changeFileWorkspace, invalidateWorkspaceRestore, router, isMobile, newSessionCwd, selectedSession]);
+  }, [activeCwd, changeFileWorkspace, handleSessionRead, invalidateWorkspaceRestore, router, isMobile, newSessionCwd, selectedSession]);
 
   const handleNewSession = useCallback((sessionId: string, cwd: string, projectKey?: string | null, options?: NewSessionOptions) => {
     invalidateWorkspaceRestore();
@@ -1510,6 +1519,7 @@ export function AppShell() {
         onBackgroundTaskDone={handleBackgroundTaskDone}
         onRunningSessionIdsChange={handleRunningSessionIdsChange}
         onUnreadSessionIdsChange={handleUnreadSessionIdsChange}
+        onSessionRead={handleSessionRead}
         onSessionsChange={handleSessionsChange}
       />
       <div style={{ padding: "8px", flexShrink: 0, display: "flex", justifyContent: "space-between", gap: 4 }}>

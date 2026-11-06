@@ -9,7 +9,7 @@ const jiti = createJiti(import.meta.url, { jsx: { runtime: "automatic" }, tsconf
 const React = await jiti.import("react");
 const { renderToStaticMarkup } = await jiti.import("react-dom/server");
 const { I18nProvider } = await jiti.import("@/hooks/useI18n");
-const { SessionSidebar, nearestEnabledKey, handOffDisabledKeyFocus, sameIdsOr } = await jiti.import("./SessionSidebar.tsx");
+const { SessionSidebar, nearestEnabledKey, handOffDisabledKeyFocus, sameIdsOr, withoutSessionIds } = await jiti.import("./SessionSidebar.tsx");
 const { buildSessionTree, getRowOffsets, getVisibleRowIndices } = await jiti.import("@/lib/session-tree.ts");
 const { SIDEBAR_DEFAULT_WIDTH, SIDEBAR_MIN_WIDTH } = await jiti.import("@/lib/panel-layout.ts");
 
@@ -434,6 +434,17 @@ test("the running poll keeps the same Set while the running ids stay the same", 
   assert.equal(sameIdsOr(empty, []), empty);
 });
 
+test("reading a session removes its completion and unread markers without rebuilding an unchanged Set", () => {
+  const previous = new Set(["a", "b"]);
+  const read = withoutSessionIds(previous, ["b", "b"]);
+  assert.deepEqual([...read], ["a"]);
+  assert.equal(withoutSessionIds(previous, ["missing"]), previous);
+  assert.equal(withoutSessionIds(previous, []), previous);
+  assert.match(source, /const markSessionIdsRead = useCallback\(\(ids: readonly string\[\]\) => \{[\s\S]*?setUnreadSessionIds\(\(previous\) => withoutSessionIds\(previous, uniqueIds\)\)[\s\S]*?setRecentlyCompletedSessionIds\(\(previous\) => withoutSessionIds\(previous, uniqueIds\)\)[\s\S]*?onSessionRead\?\.\(uniqueIds\)/);
+  assert.match(callbackBody("handleSelectSessionFromList"), /markSessionIdsRead\(\[s\.id\]\)/);
+  assert.match(source, /const markFamilyRead = useCallback\(\(family: SessionFamily, read: boolean\) => \{[\s\S]*?if \(read\) \{[\s\S]*?markSessionIdsRead\(memberIds\)/);
+});
+
 test("a read or a mark in another tab reaches this one: the storage handler adopts that tab's write", () => {
   const parse = between("function parseUnreadSessionIds(", "\nfunction loadUnreadSessionIds");
   const handler = between("const onStorage = (event: StorageEvent) => {", '\n    window.addEventListener("storage", onStorage);');
@@ -441,9 +452,13 @@ test("a read or a mark in another tab reaches this one: the storage handler adop
     compilerOptions: { target: ts.ScriptTarget.ES2020 },
   }).outputText;
   const updaters = [];
+  const readIds = [];
+  const unreadSessionIdsRef = { current: new Set(["a", "b"]) };
   const onStorage = vm.runInNewContext(`${code}\nonStorage`, {
     UNREAD_SESSIONS_STORAGE_KEY: "pi-web:unread-session-ids",
     sameIdsOr,
+    unreadSessionIdsRef,
+    onSessionRead: (ids) => readIds.push([...ids]),
     setUnreadSessionIds: (updater) => updaters.push(updater),
   });
 
@@ -454,6 +469,8 @@ test("a read or a mark in another tab reaches this one: the storage handler adop
   // The other tab read the session: the key (or all of storage) went away.
   onStorage({ key: "pi-web:unread-session-ids", newValue: null });
   assert.deepEqual([...updaters.pop()(new Set(["a", "b"]))], []);
+  assert.deepEqual(readIds.pop(), ["a", "b"]);
+  unreadSessionIdsRef.current = new Set();
 
   // The other tab wrote a newer set; it replaces this tab's, stale markers and all.
   onStorage({ key: "pi-web:unread-session-ids", newValue: '["a","b","b","c"]' });
