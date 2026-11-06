@@ -454,10 +454,12 @@ test("a read or a mark in another tab reaches this one: the storage handler adop
   const updaters = [];
   const readIds = [];
   const unreadSessionIdsRef = { current: new Set(["a", "b"]) };
+  const recentlyCompletedSessionIdsRef = { current: new Set(["b", "c"]) };
   const onStorage = vm.runInNewContext(`${code}\nonStorage`, {
     UNREAD_SESSIONS_STORAGE_KEY: "pi-web:unread-session-ids",
     sameIdsOr,
     unreadSessionIdsRef,
+    recentlyCompletedSessionIdsRef,
     onSessionRead: (ids) => readIds.push([...ids]),
     setUnreadSessionIds: (updater) => updaters.push(updater),
   });
@@ -469,8 +471,9 @@ test("a read or a mark in another tab reaches this one: the storage handler adop
   // The other tab read the session: the key (or all of storage) went away.
   onStorage({ key: "pi-web:unread-session-ids", newValue: null });
   assert.deepEqual([...updaters.pop()(new Set(["a", "b"]))], []);
-  assert.deepEqual(readIds.pop(), ["a", "b"]);
+  assert.deepEqual(readIds.pop(), ["a", "b", "c"]);
   unreadSessionIdsRef.current = new Set();
+  recentlyCompletedSessionIdsRef.current = new Set();
 
   // The other tab wrote a newer set; it replaces this tab's, stale markers and all.
   onStorage({ key: "pi-web:unread-session-ids", newValue: '["a","b","b","c"]' });

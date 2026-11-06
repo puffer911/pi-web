@@ -566,6 +566,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   const [unreadSessionIds, setUnreadSessionIds] = useState<Set<string>>(() => loadUnreadSessionIds());
   const unreadSessionIdsRef = useRef(unreadSessionIds);
   unreadSessionIdsRef.current = unreadSessionIds;
+  const recentlyCompletedSessionIdsRef = useRef<Set<string>>(new Set());
   // A completion marker is intentionally page-local: it highlights the run
   // that just ended until the session is read, without persisting a selected
   // session as unread across reloads.
@@ -580,6 +581,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   const detailsHydrationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const explorerRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileExplorerRef = useRef<FileExplorerHandle>(null);
+  recentlyCompletedSessionIdsRef.current = recentlyCompletedSessionIds;
 
   // Opening a session consumes both kinds of page-local attention: the
   // persisted unread marker and the completion marker that is intentionally
@@ -937,7 +939,10 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     const onStorage = (event: StorageEvent) => {
       if (event.key !== null && event.key !== UNREAD_SESSIONS_STORAGE_KEY) return;
       const nextIds = parseUnreadSessionIds(event.newValue);
-      const readIds = [...unreadSessionIdsRef.current].filter((id) => !nextIds.has(id));
+      const readIds = [...new Set([
+        ...unreadSessionIdsRef.current,
+        ...recentlyCompletedSessionIdsRef.current,
+      ])].filter((id) => !nextIds.has(id));
       if (readIds.length > 0) onSessionRead?.(readIds);
       setUnreadSessionIds((prev) => sameIdsOr(prev, [...nextIds]));
     };
