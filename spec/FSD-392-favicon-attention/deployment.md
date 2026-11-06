@@ -3,7 +3,7 @@
 - Migration required: No
 - Source repository: `https://github.com/puffer911/pi-web`
 - Branch: `main`
-- Source commit: pending code commit; update before merge
+- Source commit: `c716adea4d5b5049f8ac7b9a432c799e44248a4a`
 - Target artifact/tag: FSD-319 Vanilla Runtime artifact for the exact source commit; default release selector is `latest` unless the Operator/SRE command specifies an exact artifact.
 - Runtime target: Pi Web internal tooling service only when explicitly authorized by the Operator/SRE deployment command.
 - Change: keep a bounded, slower running-status poll while the browser tab is hidden so completion can update the favicon without a tab click; when the active chat becomes visible/focused or is interacted with, clear its completion/unread attention without changing session selection.
