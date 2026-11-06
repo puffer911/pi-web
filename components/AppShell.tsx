@@ -242,6 +242,38 @@ export function AppShell() {
   // model and reasoning picks, as it last reported them, go along with the
   // draft to the composer that replaces it, which takes them once.
   const sidebarControlRef = useRef<SessionSidebarControl | null>(null);
+  // Reading the active chat must update both the shell's favicon state and the
+  // sidebar's local Recent/Sessions markers, without changing selection.
+  const markSessionViewed = useCallback((sessionId: string) => {
+    sidebarControlRef.current?.markSessionRead(sessionId);
+    handleSessionRead([sessionId]);
+  }, [handleSessionRead]);
+  const handleChatViewed = useCallback(() => {
+    const sessionId = selectedSessionRef.current?.id;
+    if (sessionId) markSessionViewed(sessionId);
+  }, [markSessionViewed]);
+  useEffect(() => {
+    const markActiveSessionViewed = () => {
+      if (document.visibilityState !== "visible" || !document.hasFocus()) return;
+      const sessionId = selectedSessionRef.current?.id;
+      if (sessionId) markSessionViewed(sessionId);
+    };
+    document.addEventListener("visibilitychange", markActiveSessionViewed);
+    window.addEventListener("focus", markActiveSessionViewed);
+    return () => {
+      document.removeEventListener("visibilitychange", markActiveSessionViewed);
+      window.removeEventListener("focus", markActiveSessionViewed);
+    };
+  }, [markSessionViewed]);
+  // A completion can arrive while the user is already looking at the active
+  // chat. Consume it after the sidebar publishes the new attention marker.
+  useEffect(() => {
+    if (document.visibilityState !== "visible" || !document.hasFocus()) return;
+    const sessionId = selectedSession?.id;
+    if (!sessionId) return;
+    if (!completedFaviconSessionIds.has(sessionId) && !unreadFaviconSessionIds.has(sessionId)) return;
+    markSessionViewed(sessionId);
+  }, [completedFaviconSessionIds, markSessionViewed, selectedSession?.id, unreadFaviconSessionIds]);
   const [sidebarNewSessionContext, setSidebarNewSessionContext] = useState<NewSessionContext | null>(null);
   // The bar's last move until the sidebar reports that cwd (a commit later),
   // so the bar of the new composer shows the target's project, and a worktree
@@ -2648,6 +2680,7 @@ export function AppShell() {
               initialNewSessionChoices={selectedSession === null ? carriedNewSessionChoices : null}
               onNewSessionChoicesChange={handleNewSessionChoicesChange}
               onAgentEnd={handleAgentEnd}
+              onSessionViewed={handleChatViewed}
               onToolEnd={handleToolEnd}
               onAttentionNeeded={handleAttentionNeeded}
               onSessionCreated={handleSessionCreated}

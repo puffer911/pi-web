@@ -46,3 +46,19 @@ test("subagent sessions cannot keep completed favicon attention alive", () => {
     /sessionCatalog\s*\.filter\(\(session\) => session\.relation\?\.kind !== "subagent"\)/,
   );
 });
+
+test("viewing the active chat clears both shell and sidebar attention without reselecting", () => {
+  const body = between("const markSessionViewed = useCallback", "  const handleChatViewed");
+  assert.match(body, /sidebarControlRef\.current\?\.markSessionRead\(sessionId\)/);
+  assert.match(body, /handleSessionRead\(\[sessionId\]\)/);
+  assert.match(source, /onSessionViewed=\{handleChatViewed\}/);
+});
+
+test("returning to a focused page consumes attention for the visible active chat", () => {
+  assert.match(source, /document\.addEventListener\("visibilitychange", markActiveSessionViewed\)/);
+  assert.match(source, /window\.addEventListener\("focus", markActiveSessionViewed\)/);
+  assert.match(
+    source,
+    /completedFaviconSessionIds\.has\(sessionId\)[\s\S]*?unreadFaviconSessionIds\.has\(sessionId\)[\s\S]*?markSessionViewed\(sessionId\)/,
+  );
+});

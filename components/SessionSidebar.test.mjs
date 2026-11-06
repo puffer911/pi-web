@@ -9,7 +9,7 @@ const jiti = createJiti(import.meta.url, { jsx: { runtime: "automatic" }, tsconf
 const React = await jiti.import("react");
 const { renderToStaticMarkup } = await jiti.import("react-dom/server");
 const { I18nProvider } = await jiti.import("@/hooks/useI18n");
-const { SessionSidebar, nearestEnabledKey, handOffDisabledKeyFocus, sameIdsOr, withoutSessionIds } = await jiti.import("./SessionSidebar.tsx");
+const { SessionSidebar, getRunningSessionsPollDelay, nearestEnabledKey, handOffDisabledKeyFocus, sameIdsOr, withoutSessionIds } = await jiti.import("./SessionSidebar.tsx");
 const { buildSessionTree, getRowOffsets, getVisibleRowIndices } = await jiti.import("@/lib/session-tree.ts");
 const { SIDEBAR_DEFAULT_WIDTH, SIDEBAR_MIN_WIDTH } = await jiti.import("@/lib/panel-layout.ts");
 
@@ -434,6 +434,14 @@ test("the running poll keeps the same Set while the running ids stay the same", 
   assert.equal(sameIdsOr(empty, []), empty);
 });
 
+test("hidden tabs keep a slower bounded running-status poll for favicon completion", () => {
+  assert.equal(getRunningSessionsPollDelay("visible"), 2500);
+  assert.equal(getRunningSessionsPollDelay("hidden"), 15_000);
+  assert.match(source, /RUNNING_SESSIONS_REQUEST_TIMEOUT_MS = 10_000/);
+  assert.match(source, /if \(stopped\) return;[\s\S]*?getRunningSessionsPollDelay\(document\.visibilityState\)/);
+  assert.match(source, /if \(!controller\) void poll\(\);/);
+});
+
 test("reading a session removes its completion and unread markers without rebuilding an unchanged Set", () => {
   const previous = new Set(["a", "b"]);
   const read = withoutSessionIds(previous, ["b", "b"]);
@@ -442,6 +450,8 @@ test("reading a session removes its completion and unread markers without rebuil
   assert.equal(withoutSessionIds(previous, []), previous);
   assert.match(source, /const markSessionIdsRead = useCallback\(\(ids: readonly string\[\]\) => \{[\s\S]*?setUnreadSessionIds\(\(previous\) => withoutSessionIds\(previous, uniqueIds\)\)[\s\S]*?setRecentlyCompletedSessionIds\(\(previous\) => withoutSessionIds\(previous, uniqueIds\)\)[\s\S]*?onSessionRead\?\.\(uniqueIds\)/);
   assert.match(callbackBody("handleSelectSessionFromList"), /markSessionIdsRead\(\[s\.id\]\)/);
+  assert.match(source, /const markSessionIdsReadRef = useRef\(markSessionIdsRead\);/);
+  assert.match(source, /markSessionRead: \(sessionId\) => markSessionIdsReadRef\.current\(\[sessionId\]\)/);
   assert.match(source, /const markFamilyRead = useCallback\(\(family: SessionFamily, read: boolean\) => \{[\s\S]*?if \(read\) \{[\s\S]*?markSessionIdsRead\(memberIds\)/);
 });
 

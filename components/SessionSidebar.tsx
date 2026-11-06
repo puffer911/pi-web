@@ -248,6 +248,8 @@ interface Props {
  * move goes through here, as the sidebar's own "+" buttons do.
  */
 export interface SessionSidebarControl {
+  /** Consumes completion/unread attention for a session without changing selection. */
+  markSessionRead(sessionId: string): void;
   /** Identity, then the sidebar's cwd, then `onNewSession`, as any new session. */
   startNewSessionIn(target: NewSessionTarget): void;
   /**
@@ -311,6 +313,16 @@ type ArchiveDeleteScope = "all" | "old";
 const UNREAD_SESSIONS_STORAGE_KEY = "pi-web:unread-session-ids";
 const LAST_CUSTOM_CWD_STORAGE_KEY = "pi-web:last-custom-cwd";
 const RUNNING_SESSIONS_POLL_MS = 2500;
+// Hidden tabs still need a bounded status signal so their favicon can reflect
+// completion; unlike the visible poll this deliberately trades freshness for
+// a small request rate and remains subject to browser background throttling.
+const HIDDEN_RUNNING_SESSIONS_POLL_MS = 15_000;
+const RUNNING_SESSIONS_REQUEST_TIMEOUT_MS = 10_000;
+
+export function getRunningSessionsPollDelay(visibilityState: DocumentVisibilityState): number {
+  return visibilityState === "visible" ? RUNNING_SESSIONS_POLL_MS : HIDDEN_RUNNING_SESSIONS_POLL_MS;
+}
+
 const SESSION_DETAILS_HYDRATION_DELAY_MS = 750;
 /** "Archive sessions older than 7 days" in a project's menu. */
 const ARCHIVE_OLDER_THAN_MS = 7 * 24 * 60 * 60 * 1000;
@@ -594,6 +606,10 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     setRecentlyCompletedSessionIds((previous) => withoutSessionIds(previous, uniqueIds));
     onSessionRead?.(uniqueIds);
   }, [onSessionRead]);
+  // AppShell can mark the active chat read when it becomes visible or is
+  // interacted with, without changing the selected session or remounting it.
+  const markSessionIdsReadRef = useRef(markSessionIdsRead);
+  markSessionIdsReadRef.current = markSessionIdsRead;
 
   // The files below the sessions (desktop, by default: both in view, a
   // separator between them, the files section foldable to its header row),
@@ -962,15 +978,16 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
 
     const schedule = () => {
       clearTimer();
-      if (stopped || document.visibilityState !== "visible") return;
-      timer = setTimeout(() => void poll(), RUNNING_SESSIONS_POLL_MS);
+      if (stopped) return;
+      timer = setTimeout(() => void poll(), getRunningSessionsPollDelay(document.visibilityState));
     };
 
     const poll = async () => {
-      if (stopped || document.visibilityState !== "visible") return;
+      if (stopped) return;
       const current = new AbortController();
       controller?.abort();
       controller = current;
+      const requestTimeout = setTimeout(() => current.abort(), RUNNING_SESSIONS_REQUEST_TIMEOUT_MS);
       try {
         const res = await fetch("/api/agent/running", {
           cache: "no-store",
@@ -998,21 +1015,25 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
           await loadSessions();
         }
       } catch {
-        // Keep the last known state; the next visible-tab poll retries.
+        // Keep the last known state; the next bounded poll retries.
       } finally {
-        if (controller === current) controller = null;
+        clearTimeout(requestTimeout);
+        if (controller !== current) return;
+        controller = null;
         schedule();
       }
     };
 
     const onVisibilityChange = () => {
+      clearTimer();
       if (document.visibilityState === "visible") {
+        // A foreground transition should never wait for the hidden interval.
         void poll();
         return;
       }
-      clearTimer();
-      controller?.abort();
-      controller = null;
+      // Keep the in-flight request, if any, and let its bounded response update
+      // the favicon. If there is no request, start the low-frequency hidden poll.
+      if (!controller) void poll();
     };
 
     void poll();
@@ -1398,6 +1419,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   startNewSessionInRef.current = startNewSessionIn;
 
   useImperativeHandle(controlRef, () => ({
+    markSessionRead: (sessionId) => markSessionIdsReadRef.current([sessionId]),
     startNewSessionIn: (target) => startNewSessionInRef.current(target),
     openFolderForNewSession: (onPicked, returnFocusTo) => {
       folderPickRef.current = onPicked;
