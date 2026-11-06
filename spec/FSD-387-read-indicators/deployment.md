@@ -3,7 +3,7 @@
 - Migration required: No
 - Source repository: `https://github.com/puffer911/pi-web`
 - Branch: `main`
-- Source commit: `5a27b14fcb29d4b621c5623004dc43e02162676a`
+- Source commit: `b8f1f97316fd66987b3cada2fc8d74bcd2409a63`
 - Target artifact/tag: FSD-319 Vanilla Runtime artifact for the exact source commit; default release selector is `latest` unless the Operator/SRE command specifies an exact artifact.
 - Runtime target: Pi Web internal tooling service only when explicitly authorized by the Operator/SRE deployment command.
 - Change: reading a completed session immediately clears its Recent amber completion dot and its browser-favicon completion/unread attention, including re-clicking the selected row and the `Mark as read` action. The normal Pi favicon is restored when no running or unread/completion attention remains. Suppressed subagent completions are excluded from completion favicon attention.
