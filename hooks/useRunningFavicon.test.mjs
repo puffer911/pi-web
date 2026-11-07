@@ -23,7 +23,8 @@ function installDom() {
     fill: () => calls.push(["fill"]),
     stroke: () => calls.push(["stroke"]),
     strokeText: (...args) => calls.push(["strokeText", ...args]),
-    fillText: (...args) => calls.push(["fillText", ...args]),
+    fillText: (...args) => calls.push(["fillText", ...args, context.font]),
+    font: "",
     lineWidth: 0,
     strokeStyle: "",
   };
@@ -67,16 +68,20 @@ test("uses colored dots and a count for running, partial, and complete favicon s
     const view = renderHook((status) => useRunningFavicon(status), { state: "running", count: 1 });
     assert.equal(links.length, 1);
     assert.equal(links[0].getAttribute("href"), "data:image/png;base64,status-dot");
-    assert.deepEqual(calls.find(([name]) => name === "arc"), ["arc", 16, 16, 10.5, 0, Math.PI * 2]);
+    assert.deepEqual(calls.find(([name]) => name === "arc"), ["arc", 16, 16, 14.5, 0, Math.PI * 2]);
     assert.equal(fillStyles.includes("#16a34a"), true);
-    assert.deepEqual(calls.filter(([name]) => name === "fillText").map(([, text]) => text), ["1"]);
+    const labels = calls.filter(([name]) => name === "fillText");
+    assert.deepEqual(labels.map(([, text]) => text), ["1"]);
+    assert.equal(labels[0][4], "700 16px sans-serif");
     assert.equal(context.strokeStyle, "#173f45");
     assert.doesNotMatch(calls.map(([name]) => name).join(" "), /drawImage/);
 
     view.rerender({ state: "partial", count: 2 });
     assert.equal(fillStyles.includes("#d97706"), true);
     view.rerender({ state: "complete", count: 10 });
-    assert.deepEqual(calls.filter(([name]) => name === "fillText").map(([, text]) => text), ["1", "2", "9+"]);
+    const updatedLabels = calls.filter(([name]) => name === "fillText");
+    assert.deepEqual(updatedLabels.map(([, text]) => text), ["1", "2", "9+"]);
+    assert.equal(updatedLabels[2][4], "700 14px sans-serif");
     view.rerender({ state: "standby", count: 0 });
     assert.equal(links.length, 0);
   } finally {

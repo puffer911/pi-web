@@ -17,7 +17,7 @@ export function formatFaviconCount(count: number): string {
 const FAVICON_SIZE = 32;
 const STATUS_DOT_X = FAVICON_SIZE / 2;
 const STATUS_DOT_Y = FAVICON_SIZE / 2;
-const STATUS_DOT_RADIUS = 10.5;
+const STATUS_DOT_RADIUS = 14.5;
 // Keep the favicon colors aligned with --status-running and --status-attention.
 const RUNNING_DOT_COLOR = "#16a34a";
 const COMPLETE_DOT_COLOR = "#d97706";
@@ -66,7 +66,7 @@ function drawStatusFavicon(
   context.stroke();
 
   if (countLabel) {
-    context.font = countLabel.length > 1 ? "700 7px sans-serif" : "700 9px sans-serif";
+    context.font = countLabel.length > 1 ? "700 14px sans-serif" : "700 16px sans-serif";
     context.textAlign = "center";
     context.textBaseline = "middle";
     context.lineWidth = 2.5;
