@@ -14,16 +14,20 @@ function installDom() {
   const fillStyles = [];
   let fillStyle = "";
   const context = {
-    canvas: { toDataURL: () => "data:image/png;base64,status-dot" },
+    canvas: { toDataURL: () => "data:image/png;base64,status-count" },
     clearRect: (...args) => calls.push(["clearRect", ...args]),
     beginPath: () => calls.push(["beginPath"]),
     moveTo: (...args) => calls.push(["moveTo", ...args]),
     arc: (...args) => calls.push(["arc", ...args]),
+    rect: (...args) => calls.push(["rect", ...args]),
+    clip: () => calls.push(["clip"]),
+    save: () => calls.push(["save"]),
+    restore: () => calls.push(["restore"]),
     closePath: () => calls.push(["closePath"]),
     fill: () => calls.push(["fill"]),
     stroke: () => calls.push(["stroke"]),
-    strokeText: (...args) => calls.push(["strokeText", ...args]),
-    fillText: (...args) => calls.push(["fillText", ...args, context.font]),
+    strokeText: (...args) => calls.push(["strokeText", ...args, context.font, context.strokeStyle, context.lineWidth]),
+    fillText: (...args) => calls.push(["fillText", ...args, context.font, context.fillStyle]),
     font: "",
     lineWidth: 0,
     strokeStyle: "",
@@ -61,27 +65,39 @@ function installDom() {
   return { links, calls, fillStyles, context, makeLink };
 }
 
-test("uses colored dots and a count for running, partial, and complete favicon states", () => {
+test("draws a large colored number and splits its color for mixed favicon states", () => {
   const previousDocument = globalThis.document;
   const { links, calls, fillStyles, context } = installDom();
   try {
     const view = renderHook((status) => useRunningFavicon(status), { state: "running", count: 1 });
     assert.equal(links.length, 1);
-    assert.equal(links[0].getAttribute("href"), "data:image/png;base64,status-dot");
-    assert.deepEqual(calls.find(([name]) => name === "arc"), ["arc", 16, 16, 14.5, 0, Math.PI * 2]);
+    assert.equal(links[0].getAttribute("href"), "data:image/png;base64,status-count");
+    assert.equal(calls.some(([name]) => name === "arc"), false);
     assert.equal(fillStyles.includes("#16a34a"), true);
     const labels = calls.filter(([name]) => name === "fillText");
     assert.deepEqual(labels.map(([, text]) => text), ["1"]);
-    assert.equal(labels[0][4], "700 16px sans-serif");
+    assert.equal(labels[0][4], "700 25px sans-serif");
+    assert.equal(labels[0][5], "#16a34a");
+    const outlines = calls.filter(([name]) => name === "strokeText");
+    assert.deepEqual(outlines.slice(0, 2).map(([, , , , , color, width]) => [color, width]), [
+      ["#ffffff", 4],
+      ["#173f45", 1.5],
+    ]);
     assert.equal(context.strokeStyle, "#173f45");
     assert.doesNotMatch(calls.map(([name]) => name).join(" "), /drawImage/);
 
     view.rerender({ state: "partial", count: 2 });
     assert.equal(fillStyles.includes("#d97706"), true);
+    const mixedLabels = calls.filter(([name]) => name === "fillText").slice(-2);
+    assert.deepEqual(mixedLabels.map(([, text]) => text), ["2", "2"]);
+    assert.deepEqual(mixedLabels.map(([, , , , , color]) => color), ["#16a34a", "#d97706"]);
+    const splitClips = calls.filter(([name]) => name === "rect").slice(-2);
+    assert.deepEqual(splitClips.map(([, ...rect]) => rect), [[0, 0, 16, 32], [16, 0, 16, 32]]);
     view.rerender({ state: "complete", count: 10 });
     const updatedLabels = calls.filter(([name]) => name === "fillText");
-    assert.deepEqual(updatedLabels.map(([, text]) => text), ["1", "2", "9+"]);
-    assert.equal(updatedLabels[2][4], "700 14px sans-serif");
+    assert.deepEqual(updatedLabels.map(([, text]) => text), ["1", "2", "2", "9+"]);
+    assert.equal(updatedLabels[3][4], "700 18px sans-serif");
+    assert.equal(updatedLabels[3][5], "#d97706");
     view.rerender({ state: "standby", count: 0 });
     assert.equal(links.length, 0);
   } finally {
@@ -105,7 +121,7 @@ test("restores the original favicon when the status clears", () => {
   try {
     const view = renderHook((status) => useRunningFavicon(status), { state: "complete", count: 1 });
     assert.equal(links.length, 1);
-    assert.equal(original.getAttribute("href"), "data:image/png;base64,status-dot");
+    assert.equal(original.getAttribute("href"), "data:image/png;base64,status-count");
     view.rerender({ state: "standby", count: 0 });
     assert.equal(original.getAttribute("href"), "/icons/icon-192.png");
     assert.equal(links.length, 1);
