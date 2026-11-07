@@ -509,9 +509,9 @@ export const SM_CACHE_LIMITS = {
   /** Most sessions held at once. */
   maxEntries: 12,
   /** Summed on-disk size of cached sessions. */
-  maxTotalBytes: 256 * 1024 * 1024,
+  maxTotalBytes: 100 * 1024 * 1024,
   /** A session larger than this is never cached — it would evict everything else. */
-  maxFileBytes: 64 * 1024 * 1024,
+  maxFileBytes: 24 * 1024 * 1024,
 };
 
 function getSmCache(): Map<string, SmCacheEntry> {
