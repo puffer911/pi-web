@@ -3,7 +3,7 @@
 - Migration required: No
 - Source repository: `https://github.com/puffer911/pi-web`
 - Branch: `main`
-- Source commit: pending implementation commit; update before merge
+- Source commit: `9b75b2fca7437458ce6e17855433280d729f2650`
 - Target artifact/tag: FSD-319 Vanilla Runtime artifact for the exact source commit; default release selector is `latest` unless the Operator/SRE command specifies an exact artifact.
 - Runtime target: Pi Web internal tooling service only when explicitly authorized by the Operator/SRE deployment command.
 - Change: draw a compact numeric count on the dynamic favicon for the union of running root sessions and unread/completed root sessions. Running-only remains green, unread-only amber, mixed attention split green/amber, and zero count restores the original Pi favicon. Counts 10+ render as `9+`; subagents are folded into their root session and suppressed subagent completions do not add attention.
