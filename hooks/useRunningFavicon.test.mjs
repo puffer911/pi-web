@@ -6,7 +6,7 @@ import { createJiti } from "jiti";
 const shimPath = fileURLToPath(new URL("./__fixtures__/react-hook-shim.mjs", import.meta.url));
 const jiti = createJiti(import.meta.url, { tsconfigPaths: true, alias: { react: shimPath } });
 const { renderHook } = await import(shimPath);
-const { useRunningFavicon } = await jiti.import("./useRunningFavicon.ts");
+const { formatFaviconCount, useRunningFavicon } = await jiti.import("./useRunningFavicon.ts");
 
 function installDom() {
   const links = [];
@@ -22,6 +22,8 @@ function installDom() {
     closePath: () => calls.push(["closePath"]),
     fill: () => calls.push(["fill"]),
     stroke: () => calls.push(["stroke"]),
+    strokeText: (...args) => calls.push(["strokeText", ...args]),
+    fillText: (...args) => calls.push(["fillText", ...args]),
     lineWidth: 0,
     strokeStyle: "",
   };
@@ -58,27 +60,35 @@ function installDom() {
   return { links, calls, fillStyles, context, makeLink };
 }
 
-test("uses standalone colored dots for running, partial, and complete favicon states", () => {
+test("uses colored dots and a count for running, partial, and complete favicon states", () => {
   const previousDocument = globalThis.document;
   const { links, calls, fillStyles, context } = installDom();
   try {
-    const view = renderHook((state) => useRunningFavicon(state), "running");
+    const view = renderHook((status) => useRunningFavicon(status), { state: "running", count: 1 });
     assert.equal(links.length, 1);
     assert.equal(links[0].getAttribute("href"), "data:image/png;base64,status-dot");
     assert.deepEqual(calls.find(([name]) => name === "arc"), ["arc", 16, 16, 10.5, 0, Math.PI * 2]);
-    assert.equal(fillStyles.at(-1), "#16a34a");
+    assert.equal(fillStyles.includes("#16a34a"), true);
+    assert.deepEqual(calls.filter(([name]) => name === "fillText").map(([, text]) => text), ["1"]);
     assert.equal(context.strokeStyle, "#173f45");
     assert.doesNotMatch(calls.map(([name]) => name).join(" "), /drawImage/);
 
-    view.rerender("partial");
-    assert.deepEqual(fillStyles.slice(-2), ["#16a34a", "#d97706"]);
-    view.rerender("complete");
-    assert.equal(fillStyles.at(-1), "#d97706");
-    view.rerender("standby");
+    view.rerender({ state: "partial", count: 2 });
+    assert.equal(fillStyles.includes("#d97706"), true);
+    view.rerender({ state: "complete", count: 10 });
+    assert.deepEqual(calls.filter(([name]) => name === "fillText").map(([, text]) => text), ["1", "2", "9+"]);
+    view.rerender({ state: "standby", count: 0 });
     assert.equal(links.length, 0);
   } finally {
     globalThis.document = previousDocument;
   }
+});
+
+test("formats favicon counts for an empty, single-digit, and large total", () => {
+  assert.equal(formatFaviconCount(0), "");
+  assert.equal(formatFaviconCount(1), "1");
+  assert.equal(formatFaviconCount(9), "9");
+  assert.equal(formatFaviconCount(10), "9+");
 });
 
 test("restores the original favicon when the status clears", () => {
@@ -88,10 +98,10 @@ test("restores the original favicon when the status clears", () => {
   original.setAttribute("href", "/icons/icon-192.png");
   links.push(original);
   try {
-    const view = renderHook((state) => useRunningFavicon(state), "complete");
+    const view = renderHook((status) => useRunningFavicon(status), { state: "complete", count: 1 });
     assert.equal(links.length, 1);
     assert.equal(original.getAttribute("href"), "data:image/png;base64,status-dot");
-    view.rerender("standby");
+    view.rerender({ state: "standby", count: 0 });
     assert.equal(original.getAttribute("href"), "/icons/icon-192.png");
     assert.equal(links.length, 1);
   } finally {

@@ -41,10 +41,8 @@ test("reselecting a session consumes the same favicon read path", () => {
 });
 
 test("subagent sessions cannot keep completed favicon attention alive", () => {
-  assert.match(
-    source,
-    /sessionCatalog\s*\.filter\(\(session\) => session\.relation\?\.kind !== "subagent"\)/,
-  );
+  assert.match(source, /getFaviconSessionStatus\(/);
+  assert.match(source, /@\/lib\/favicon-session-count/);
 });
 
 test("viewing the active chat clears both shell and sidebar attention without reselecting", () => {

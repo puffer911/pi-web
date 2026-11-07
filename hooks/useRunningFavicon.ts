@@ -4,6 +4,16 @@ import { useEffect } from "react";
 
 export type RunningFaviconState = "standby" | "running" | "partial" | "complete";
 
+export interface RunningFaviconStatus {
+  state: RunningFaviconState;
+  count: number;
+}
+
+export function formatFaviconCount(count: number): string {
+  if (!Number.isFinite(count) || count <= 0) return "";
+  return count >= 10 ? "9+" : String(Math.floor(count));
+}
+
 const FAVICON_SIZE = 32;
 const STATUS_DOT_X = FAVICON_SIZE / 2;
 const STATUS_DOT_Y = FAVICON_SIZE / 2;
@@ -40,6 +50,7 @@ function drawDot(
 function drawStatusFavicon(
   context: CanvasRenderingContext2D,
   state: Exclude<RunningFaviconState, "standby">,
+  countLabel: string,
 ): string {
   context.clearRect(0, 0, FAVICON_SIZE, FAVICON_SIZE);
   if (state === "partial") {
@@ -53,13 +64,26 @@ function drawStatusFavicon(
   context.lineWidth = 1.5;
   context.strokeStyle = STATUS_DOT_OUTLINE;
   context.stroke();
+
+  if (countLabel) {
+    context.font = countLabel.length > 1 ? "700 7px sans-serif" : "700 9px sans-serif";
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.lineWidth = 2.5;
+    context.strokeStyle = STATUS_DOT_OUTLINE;
+    context.strokeText(countLabel, STATUS_DOT_X, STATUS_DOT_Y + 0.5);
+    context.fillStyle = "#ffffff";
+    context.fillText(countLabel, STATUS_DOT_X, STATUS_DOT_Y + 0.5);
+  }
   return context.canvas.toDataURL("image/png");
 }
 
-/** Shows a standalone favicon status dot while work is running or awaiting attention. */
-export function useRunningFavicon(state: RunningFaviconState): void {
+/** Shows a favicon status dot and count while work is running or awaiting attention. */
+export function useRunningFavicon(status: RunningFaviconStatus): void {
+  const { state, count } = status;
+
   useEffect(() => {
-    if (state === "standby") return;
+    if (state === "standby" || count <= 0) return;
 
     const { links, created } = getFaviconLinks();
     const originalHrefs = links.map((link) => link.getAttribute("href"));
@@ -79,9 +103,9 @@ export function useRunningFavicon(state: RunningFaviconState): void {
 
     if (!context) return restore;
 
-    const favicon = drawStatusFavicon(context, state);
+    const favicon = drawStatusFavicon(context, state, formatFaviconCount(count));
     links.forEach((link) => link.setAttribute("href", favicon));
 
     return restore;
-  }, [state]);
+  }, [count, state]);
 }

@@ -27,7 +27,7 @@ import { useFontPreferences } from "@/hooks/useFontPreferences";
 import { useI18n } from "@/hooks/useI18n";
 import { useIsMobile, useIsNarrowMobile } from "@/hooks/useIsMobile";
 import { useViewportHeight } from "@/hooks/useViewportHeight";
-import { useRunningFavicon, type RunningFaviconState } from "@/hooks/useRunningFavicon";
+import { useRunningFavicon } from "@/hooks/useRunningFavicon";
 import { useResizablePanel } from "@/hooks/useResizablePanel";
 import { useAudio } from "@/hooks/useAudio";
 import { copyText } from "@/lib/clipboard";
@@ -77,6 +77,7 @@ import type { SessionStatsInfo } from "@/lib/pi-types";
 import { formatActiveDuration, formatCompactCount, formatCostShort } from "@/lib/session-stats-format";
 import type { FileViewerState } from "@/lib/file-viewer-state";
 import { PRESET_READ_ONLY, type ToolEntry } from "@/lib/tool-presets";
+import { getFaviconSessionStatus } from "@/lib/favicon-session-count";
 import { getAgentsBadge, getSessionFamily } from "@/lib/session-family";
 import { getLastSettingsSection, settingsSectionRequiresProject, type SettingsSection } from "@/lib/settings-navigation";
 
@@ -181,21 +182,16 @@ export function AppShell() {
   const previousRunningSessionIdsRef = useRef<Set<string>>(new Set());
   const [completedFaviconSessionIds, setCompletedFaviconSessionIds] = useState<Set<string>>(() => new Set());
   const [unreadFaviconSessionIds, setUnreadFaviconSessionIds] = useState<Set<string>>(() => new Set());
-  const knownFaviconSessionIds = useMemo(
-    () => new Set(
-      sessionCatalog
-        .filter((session) => session.relation?.kind !== "subagent")
-        .map((session) => session.id),
+  const runningFaviconStatus = useMemo(
+    () => getFaviconSessionStatus(
+      sessionsWithSelection,
+      runningSessionIds,
+      completedFaviconSessionIds,
+      unreadFaviconSessionIds,
     ),
-    [sessionCatalog],
+    [completedFaviconSessionIds, runningSessionIds, sessionsWithSelection, unreadFaviconSessionIds],
   );
-  const runningFaviconState = useMemo<RunningFaviconState>(() => {
-    const hasCompletedWork = [...new Set([...completedFaviconSessionIds, ...unreadFaviconSessionIds])]
-      .some((id) => knownFaviconSessionIds.has(id) && !runningSessionIds.has(id));
-    if (runningSessionIds.size === 0) return hasCompletedWork ? "complete" : "standby";
-    return hasCompletedWork ? "partial" : "running";
-  }, [completedFaviconSessionIds, knownFaviconSessionIds, runningSessionIds, unreadFaviconSessionIds]);
-  useRunningFavicon(runningFaviconState);
+  useRunningFavicon(runningFaviconStatus);
   const handleRunningSessionIdsChange = useCallback((ids: Set<string>) => {
     const previous = previousRunningSessionIdsRef.current;
     const completedNow = [...previous].filter((id) => !ids.has(id));
